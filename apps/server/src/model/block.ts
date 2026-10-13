@@ -43,9 +43,13 @@ export async function loadBlock(projectPath: string, relPath: string): Promise<B
   }
   const parsed = BlockFile.safeParse(parse(text));
   if (!parsed.success) throw new BlockError(`Invalid Block ${relPath}: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
-  const file = parsed.data;
-  const def = describe(relPath, file);
-  // Instantiate once with defaults so definition errors surface when the Block is loaded.
+  const def = defineBlock(relPath, parsed.data);
+  return def;
+}
+
+/** Builds and checks a Block definition from file contents (also for in-memory Blocks). */
+export function defineBlock(path: string, file: BlockFile): BlockDef {
+  const def = describe(path, file);
   instantiate(def, {}, def.sampleRateHz ?? 1000);
   return def;
 }

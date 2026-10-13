@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { ProjectInfo, ProjectTemplate, TransportConfig } from "./project.ts";
-import { BlockInfo, SystemInfo, TimeAnalysisRequest, TimeAnalysisResult, ValidationIssue } from "./model.ts";
+import {
+  BlockInfo,
+  DiscretizationComparison,
+  DiscretizationRequest,
+  DiscretizationResult,
+  Stimulus,
+  SystemInfo,
+  TimeAnalysisRequest,
+  TimeAnalysisResult,
+  ValidationIssue,
+} from "./model.ts";
 import { DeviceInfo, LinkHealth, RecordingInfo, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
@@ -173,6 +183,20 @@ export const Methods = {
   "analysis.time": {
     params: TimeAnalysisRequest,
     result: TimeAnalysisResult,
+  },
+  /** Converts a continuous Block to discrete time (Discretization), optionally saving it. */
+  "block.discretize": {
+    params: DiscretizationRequest,
+    result: DiscretizationResult,
+  },
+  /** Responses of a continuous Block and its discretized version to the same input. */
+  "analysis.discretization": {
+    params: DiscretizationRequest.omit({ save: true }).extend({
+      kind: z.enum(["step", "impulse", "stimulus"]),
+      stimulus: Stimulus.optional(),
+      durationS: z.number().positive().max(600),
+    }),
+    result: DiscretizationComparison,
   },
   "source.stop": {
     params: z.object({ device: z.string() }),

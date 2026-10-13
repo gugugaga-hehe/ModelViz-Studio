@@ -27,17 +27,31 @@ test("edits Blocks, builds a System from the Loop Template and runs a step respo
     expect(final.y).toBeCloseTo(1, 2);
     await expect(result.locator("canvas")).toBeVisible();
 
+    // Discretization of the gyro filter: compare and save
+    await page.getByRole("button", { name: /^gyro-lpf\.yaml/ }).click();
+    await page.getByRole("tab", { name: "Discretization" }).click();
+    const disc = page.getByTestId("discretize-panel");
+    await disc.getByLabel("Method").selectOption("zoh");
+    await disc.getByRole("button", { name: "Compare" }).click();
+    await expect(disc.getByTestId("disc-plot")).toHaveAttribute("data-points", "501");
+    await expect(disc.getByTestId("disc-error")).toContainText(/Largest difference: [0-9.e-]+/);
+    await disc.getByLabel("Save as").fill("blocks/gyro-lpf-1k.yaml");
+    await disc.getByRole("button", { name: "Save discrete Block" }).click();
+    await expect(disc.getByRole("status")).toHaveText("Saved blocks/gyro-lpf-1k.yaml");
+    await expect(page.getByRole("button", { name: /^gyro-lpf-1k\.yaml/ })).toBeVisible();
+    await page.getByRole("tab", { name: "Analysis" }).click();
+
     // break a Block: the editor shows the problem
     await page.getByRole("button", { name: /^plant\.yaml/ }).click();
     const editor = page.getByLabel("File content");
-    await expect(editor).toHaveValue(/kind: transfer-function/);
+    await expect(editor).toHaveValue(/Rate Plant/);
     await editor.fill((await editor.inputValue()).replace('denominator: [1, "2*zeta*wn", "wn^2"]', "denominator: [1, oops]"));
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("alert", { name: "Issues" })).toContainText('Unknown name "oops"');
 
     // a new System from the Loop Template (Plant fixed again first)
     await editor.fill((await editor.inputValue()).replace("denominator: [1, oops]", "denominator: [1, 1]"));
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("alert", { name: "Issues" })).toHaveCount(0);
     await page.getByRole("button", { name: "Loop Template" }).click();
     const form = page.getByRole("form", { name: "New System from the Loop Template" });
