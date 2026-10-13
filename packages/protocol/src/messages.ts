@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ProjectInfo } from "./project.ts";
+import { ProjectInfo, ProjectTemplate } from "./project.ts";
+import { DeviceInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
  * Version of the client protocol. Client and server must agree exactly;
@@ -16,6 +17,7 @@ export const ErrorCode = z.enum([
   "unknown_method",
   "invalid_params",
   "not_found",
+  "conflict",
   "already_exists",
   "invalid_project",
   "no_project",
@@ -33,7 +35,11 @@ export type ProtocolError = z.infer<typeof ProtocolError>;
 
 export const Methods = {
   "project.create": {
-    params: z.object({ path: z.string().min(1), name: z.string().min(1) }),
+    params: z.object({
+      path: z.string().min(1),
+      name: z.string().min(1),
+      template: ProjectTemplate.default("empty"),
+    }),
     result: ProjectInfo,
   },
   "project.open": {
@@ -43,6 +49,35 @@ export const Methods = {
   "project.current": {
     params: z.object({}),
     result: ProjectInfo.nullable(),
+  },
+  "devices.list": {
+    params: z.object({}),
+    result: z.array(DeviceInfo),
+  },
+  "signals.list": {
+    params: z.object({}),
+    result: z.array(SignalInfo),
+  },
+  /** Start streaming binary chunks for these Signal ids to this client. */
+  "signals.subscribe": {
+    params: z.object({ ids: z.array(z.string()) }),
+    result: z.object({}),
+  },
+  "signals.unsubscribe": {
+    params: z.object({ ids: z.array(z.string()) }),
+    result: z.object({}),
+  },
+  "sources.list": {
+    params: z.object({}),
+    result: z.array(SourceState),
+  },
+  "source.startVirtual": {
+    params: z.object({ device: z.string() }),
+    result: SourceState,
+  },
+  "source.stop": {
+    params: z.object({ device: z.string() }),
+    result: SourceState,
   },
 } as const;
 
@@ -54,6 +89,7 @@ export type MethodResult<M extends MethodName> = z.infer<(typeof Methods)[M]["re
 
 export const Events = {
   "project.changed": ProjectInfo.nullable(),
+  "source.changed": SourceState,
 } as const;
 
 export type EventName = keyof typeof Events;
