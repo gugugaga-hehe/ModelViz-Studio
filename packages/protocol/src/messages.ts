@@ -7,6 +7,7 @@ import {
   DiscretizationResult,
   FrequencyAnalysisRequest,
   FrequencyAnalysisResult,
+  LiveSystemState,
   PoleZeroResult,
   PythonStatus,
   SweepRequest,
@@ -242,6 +243,27 @@ export const Methods = {
     params: z.object({}),
     result: PythonStatus,
   },
+  /**
+   * Runs a System continuously from a live Signal (chunk by chunk, ADR-0010). Outputs are
+   * published as Signals `system:<name>/out.<output>` on the input Signal's time axis.
+   */
+  "system.live.start": {
+    params: z.object({
+      system: z.string(),
+      input: z.string().optional(),
+      signal: z.string(),
+      parameters: z.record(z.string(), z.record(z.string(), z.number())).default({}),
+    }),
+    result: LiveSystemState,
+  },
+  "system.live.stop": {
+    params: z.object({ system: z.string() }),
+    result: LiveSystemState,
+  },
+  "system.live.list": {
+    params: z.object({}),
+    result: z.array(LiveSystemState),
+  },
   "source.stop": {
     params: z.object({ device: z.string() }),
     result: SourceState,
@@ -263,6 +285,7 @@ export const Events = {
   "signals.reset": z.object({ device: z.string() }),
   "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
   "python.changed": PythonStatus,
+  "system.live.changed": LiveSystemState,
 } as const;
 
 export type EventName = keyof typeof Events;

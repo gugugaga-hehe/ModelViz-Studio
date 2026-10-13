@@ -163,12 +163,25 @@ export const Stimulus = z.discriminatedUnion("kind", [
 ]);
 export type Stimulus = z.infer<typeof Stimulus>;
 
+/** A recorded Signal used as a System input: from a Recording or a CSV import. */
+export const RecordedSignal = z.object({
+  /** Recording id (or CSV import name). */
+  recording: z.string(),
+  /** Signal id, e.g. "bench/BENCH_STATE.setpoint". */
+  signal: z.string(),
+  /** Skip this much of the Signal first (seconds). */
+  startS: z.number().nonnegative().default(0),
+});
+export type RecordedSignal = z.infer<typeof RecordedSignal>;
+
 export const TimeAnalysisRequest = z.object({
   /** System file path, relative to the Project. */
   system: z.string(),
-  kind: z.enum(["step", "impulse", "stimulus"]),
+  kind: z.enum(["step", "impulse", "stimulus", "signal"]),
   /** Required for kind "stimulus". */
   stimulus: Stimulus.optional(),
+  /** Required for kind "signal": the recorded Signal, held between its samples. */
+  signal: RecordedSignal.optional(),
   /** System input to drive; the other inputs are held at 0. Defaults to the first input. */
   input: z.string().optional(),
   durationS: z.number().positive().max(3600),
@@ -373,3 +386,15 @@ export const PythonStatus = z.object({
   log: z.array(z.string()).default([]),
 });
 export type PythonStatus = z.infer<typeof PythonStatus>;
+
+export const LiveSystemState = z.object({
+  system: z.string(),
+  input: z.string(),
+  /** Live Signal driving the input. */
+  signal: z.string(),
+  running: z.boolean(),
+  /** Samples simulated so far. */
+  samples: z.number(),
+  error: z.string().optional(),
+});
+export type LiveSystemState = z.infer<typeof LiveSystemState>;

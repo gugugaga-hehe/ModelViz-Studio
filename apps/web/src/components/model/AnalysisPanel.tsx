@@ -11,7 +11,7 @@ import { type Series, SeriesPlot } from "./SeriesPlot";
 const fg = () => getComputedStyle(document.documentElement).getPropertyValue("--mv-fg").trim() || "#111827";
 
 const PALETTE = ["#64748b", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"];
-type Kind = "step" | "impulse" | "stimulus" | "bode" | "polezero";
+type Kind = "step" | "impulse" | "stimulus" | "signal" | "bode" | "polezero";
 type StimKind = "sine" | "chirp" | "sineSweep";
 type Result =
   | { kind: "time"; data: TimeAnalysisResult }
@@ -21,6 +21,11 @@ type Result =
 export function AnalysisPanel({ system }: { system: string | null }) {
   const { t } = useTranslation();
   const systems = useSession((s) => s.systems);
+  const recordings = useSession((s) => s.recordings);
+  const signals = useSession((s) => s.signals);
+  const [recording, setRecording] = useState("");
+  const [recSignal, setRecSignal] = useState("");
+  const [startS, setStartS] = useState("0");
   const [selected, setSelected] = useState(system ?? "");
   const [kind, setKind] = useState<Kind>("step");
   const [stim, setStim] = useState<StimKind>("chirp");
@@ -75,6 +80,7 @@ export function AnalysisPanel({ system }: { system: string | null }) {
             kind,
             durationS: Number(duration),
             ...(kind === "stimulus" ? { stimulus } : {}),
+            ...(kind === "signal" ? { signal: { recording: rec, signal: recSig, startS: Number(startS) } } : {}),
           }),
         });
       }
@@ -87,7 +93,11 @@ export function AnalysisPanel({ system }: { system: string | null }) {
   }
 
   const input = "rounded border border-border bg-surface px-2 py-1 text-xs";
-  const timeKind = kind === "step" || kind === "impulse" || kind === "stimulus";
+  const timeKind = kind === "step" || kind === "impulse" || kind === "stimulus" || kind === "signal";
+  const rec = recording || recordings.find((r) => !r.active)?.id || "";
+  const recDevice = recordings.find((r) => r.id === rec)?.device;
+  const recSignals = signals.filter((s) => s.device === recDevice);
+  const recSig = recSignals.some((s) => s.id === recSignal) ? recSignal : (recSignals[0]?.id ?? "");
   return (
     <section aria-label={t("analysis.title")} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto" data-testid="analysis-panel">
       <form onSubmit={run} className="flex flex-wrap items-end gap-2 text-xs">
@@ -108,6 +118,7 @@ export function AnalysisPanel({ system }: { system: string | null }) {
             <option value="step">{t("analysis.step")}</option>
             <option value="impulse">{t("analysis.impulse")}</option>
             <option value="stimulus">{t("analysis.stimulus")}</option>
+            <option value="signal">{t("analysis.recorded")}</option>
             <option value="bode">{t("analysis.bode")}</option>
             <option value="polezero">{t("analysis.polezero")}</option>
           </select>
@@ -135,6 +146,36 @@ export function AnalysisPanel({ system }: { system: string | null }) {
             <label className="flex w-16 flex-col gap-1">
               {t("analysis.amplitude")}
               <input className={input} value={amp} onChange={(e) => setAmp(e.target.value)} inputMode="decimal" />
+            </label>
+          </>
+        )}
+        {kind === "signal" && (
+          <>
+            <label className="flex flex-col gap-1">
+              {t("analysis.recording")}
+              <select aria-label={t("analysis.recording")} className={input} value={rec} onChange={(e) => setRecording(e.target.value)}>
+                {recordings
+                  .filter((r) => !r.active)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.id}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              Signal
+              <select aria-label={t("analysis.inputSignal")} className={input} value={recSig} onChange={(e) => setRecSignal(e.target.value)}>
+                {recSignals.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.message}.{s.field}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex w-16 flex-col gap-1">
+              {t("analysis.startS")}
+              <input aria-label={t("analysis.startS")} className={input} value={startS} onChange={(e) => setStartS(e.target.value)} inputMode="decimal" />
             </label>
           </>
         )}

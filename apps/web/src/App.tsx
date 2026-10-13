@@ -6,6 +6,7 @@ import { DevicesPanel } from "./components/DevicesPanel";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { ModelLab } from "./components/model/ModelLab";
 import { ProjectPanel } from "./components/ProjectPanel";
+import { LiveSystemsPanel } from "./components/LiveSystemsPanel";
 import { RecordingsPanel } from "./components/RecordingsPanel";
 import { PlotStack } from "./components/PlotStack";
 import { useSession } from "./state/session";
@@ -66,6 +67,7 @@ export function App() {
           <aside className="w-64 shrink-0 overflow-auto rounded-lg border border-border bg-surface p-3">
             <DevicesPanel />
             <RecordingsPanel />
+            <LiveSystemsPanel />
           </aside>
           <PlotStack />
         </main>

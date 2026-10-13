@@ -158,7 +158,11 @@
     },
     "methodLabel": "方法",
     "methodAuto": "自動（{{method}}）",
-    "measureAmplitude": "量測振幅"
+    "measureAmplitude": "量測振幅",
+    "recorded": "錄製的 Signal",
+    "recording": "Recording",
+    "inputSignal": "輸入 Signal",
+    "startS": "起始 [s]"
   },
   "disc": {
     "title": "Discretization",
@@ -256,5 +260,13 @@
     "apply": "套用",
     "setUp": "設定 Python 環境…",
     "edit": "編輯依賴套件…"
+  },
+  "live": {
+    "heading": "Live System",
+    "system": "System",
+    "signal": "輸入 Signal",
+    "start": "即時執行",
+    "stop": "停止 live System",
+    "none": "需要 System 與 Signal"
   }
 }

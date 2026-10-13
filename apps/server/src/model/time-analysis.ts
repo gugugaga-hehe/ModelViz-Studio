@@ -6,11 +6,33 @@ import { PythonHost } from "./python-host.ts";
 import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
 
 /** Runs a step, impulse or Stimulus response of a System from rest. */
-export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequest, python: string | null = null): Promise<TimeAnalysisResult> {
+/** A recorded Signal: times in seconds from its first sample. */
+export interface SampledSignal {
+  t: Float64Array;
+  v: Float64Array;
+}
+
+/** Value of a sampled Signal at time t, held from the last sample at or before t. */
+export function holdLookup(sig: SampledSignal, offsetS: number): (t: number) => number {
+  let i = 0;
+  return (t) => {
+    const at = t + offsetS;
+    while (i + 1 < sig.t.length && sig.t[i + 1]! <= at) i++;
+    while (i > 0 && sig.t[i]! > at) i--;
+    return sig.v[i] ?? 0;
+  };
+}
+
+export async function runTimeAnalysis(
+  projectPath: string,
+  req: TimeAnalysisRequest,
+  python: string | null = null,
+  signal: SampledSignal | null = null,
+): Promise<TimeAnalysisResult> {
   const sys = await loadSystem(projectPath, req.system);
   const host = withPython(sys, python);
   try {
-    return await timeAnalysis(sys, req, host ?? undefined);
+    return await timeAnalysis(sys, req, host ?? undefined, signal);
   } finally {
     host?.close();
   }
@@ -24,7 +46,7 @@ export function withPython(sys: LoadedSystem, python: string | null): PythonHost
   return new PythonHost(python);
 }
 
-async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: PythonHost): Promise<TimeAnalysisResult> {
+async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: PythonHost, signal: SampledSignal | null = null): Promise<TimeAnalysisResult> {
   let engine: SystemEngine;
   try {
     engine = new SystemEngine(sys, req.parameters, host ? { python: host } : {});
@@ -36,14 +58,25 @@ async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: 
   if (!input || !engine.inputs.includes(input)) {
     throw new ProtocolFailure("invalid_params", `System ${sys.name} has no input ${req.input ?? ""}`.trim());
   }
-  const stim =
-    req.kind === "step" ? { kind: "step" as const, amplitude: 1, startS: 0 }
-    : req.kind === "impulse" ? { kind: "impulse" as const, area: 1 }
-    : req.stimulus;
-  if (!stim) throw new ProtocolFailure("invalid_params", 'kind "stimulus" needs a stimulus');
   const fs = engine.sampleRateHz;
-  const count = Math.round(req.durationS * fs) + 1;
-  const drive = stimulusFn(stim, req.durationS, fs);
+  let drive: (k: number, t: number) => number;
+  let durationS = req.durationS;
+  if (req.kind === "signal") {
+    if (!signal || !req.signal) throw new ProtocolFailure("invalid_params", 'kind "signal" needs a recorded signal');
+    const span = (signal.t.at(-1) ?? 0) - req.signal.startS;
+    if (span <= 0) throw new ProtocolFailure("invalid_params", "The recorded Signal has no samples after startS");
+    durationS = Math.min(durationS, span);
+    const look = holdLookup(signal, req.signal.startS);
+    drive = (_k, t) => look(t);
+  } else {
+    const stim =
+      req.kind === "step" ? { kind: "step" as const, amplitude: 1, startS: 0 }
+      : req.kind === "impulse" ? { kind: "impulse" as const, area: 1 }
+      : req.stimulus;
+    if (!stim) throw new ProtocolFailure("invalid_params", 'kind "stimulus" needs a stimulus');
+    drive = stimulusFn(stim, durationS, fs);
+  }
+  const count = Math.round(durationS * fs) + 1;
   const u = new Float64Array(count);
   let outputs: Float64Array[];
   try {
