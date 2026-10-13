@@ -1,5 +1,5 @@
 import { type ConnectionState, ModelVizClient } from "@modelviz/client";
-import { type BlockInfo, type DeviceInfo, type SystemInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
+import { type BlockInfo, type DeviceInfo, type PythonStatus, type SystemInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
 import { create } from "zustand";
 import { SignalStore } from "./signal-store";
 
@@ -23,6 +23,7 @@ interface SessionState {
   recordings: RecordingInfo[];
   blocks: BlockInfo[];
   systems: SystemInfo[];
+  python: PythonStatus | null;
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -36,21 +37,23 @@ export const useSession = create<SessionState>(() => ({
   recordings: [],
   blocks: [],
   systems: [],
+  python: null,
 }));
 
 async function loadProjectState(project: ProjectInfo | null): Promise<void> {
   signalStore.clear();
   if (!project) {
-    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [], blocks: [], systems: [] });
+    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [], blocks: [], systems: [], python: null });
     return;
   }
-  const [devices, signals, sources, recordings, blocks, systems] = await Promise.all([
+  const [devices, signals, sources, recordings, blocks, systems, python] = await Promise.all([
     client.request("devices.list", {}),
     client.request("signals.list", {}),
     client.request("sources.list", {}),
     client.request("recordings.list", {}),
     client.request("blocks.list", {}),
     client.request("systems.list", {}),
+    client.request("python.status", {}),
   ]);
   useSession.setState({
     project,
@@ -61,6 +64,7 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     recordings,
     blocks,
     systems,
+    python,
   });
 }
 
@@ -73,6 +77,7 @@ client.onState((connection) => {
 client.on("project.changed", (project) => void loadProjectState(project).catch(() => {}));
 client.on("source.changed", (s) => useSession.setState((st) => ({ sources: { ...st.sources, [s.device]: s } })));
 client.on("link.health", (h) => useSession.setState((st) => ({ health: { ...st.health, [h.device]: h } })));
+client.on("python.changed", (python) => useSession.setState({ python }));
 client.on("recording.changed", (r) =>
   useSession.setState((st) => {
     const others = st.recordings.filter((x) => x.id !== r.id);

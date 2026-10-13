@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProjectInfo, ProjectTemplate, TransportConfig } from "./project.ts";
+import { ProjectInfo, ProjectTemplate, PythonConfig, TransportConfig } from "./project.ts";
 import {
   BlockInfo,
   DiscretizationComparison,
@@ -8,6 +8,7 @@ import {
   FrequencyAnalysisRequest,
   FrequencyAnalysisResult,
   PoleZeroResult,
+  PythonStatus,
   SweepRequest,
   SweepResult,
   Stimulus,
@@ -227,6 +228,20 @@ export const Methods = {
     params: z.object({ id: z.string() }),
     result: z.object({ cancelled: z.boolean() }),
   },
+  "python.status": {
+    params: z.object({}),
+    result: PythonStatus,
+  },
+  /** Declares the Project's Python environment in project.yaml and prepares it. */
+  "python.configure": {
+    params: PythonConfig,
+    result: PythonStatus,
+  },
+  /** Re-creates the environment from the declaration (e.g. after a failure). */
+  "python.sync": {
+    params: z.object({}),
+    result: PythonStatus,
+  },
   "source.stop": {
     params: z.object({ device: z.string() }),
     result: SourceState,
@@ -247,6 +262,7 @@ export const Events = {
   /** A Device's Signals restart (e.g. a Log Replay seeked); clients should drop buffered samples. */
   "signals.reset": z.object({ device: z.string() }),
   "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
+  "python.changed": PythonStatus,
 } as const;
 
 export type EventName = keyof typeof Events;

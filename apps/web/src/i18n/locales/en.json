@@ -237,5 +237,21 @@
       "gainCrossoverHz": "Gain crossover [Hz]",
       "phaseCrossoverHz": "Phase crossover [Hz]"
     }
+  },
+  "python": {
+    "state": {
+      "absent": "not set up",
+      "preparing": "preparing",
+      "ready": "ready",
+      "failed": "failed"
+    },
+    "retry": "Retry",
+    "packages_one": "{{count}} pinned package",
+    "packages_other": "{{count}} pinned packages",
+    "dependencies": "Dependencies (one per line)",
+    "version": "Python version (optional)",
+    "apply": "Apply",
+    "setUp": "Set up Python environment…",
+    "edit": "Edit dependencies…"
   }
 }

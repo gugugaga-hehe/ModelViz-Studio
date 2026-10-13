@@ -331,3 +331,17 @@ export const SweepResult = z.object({
   values: z.record(z.string(), z.union([z.array(z.number().nullable()), z.array(z.array(z.number().nullable()))])),
 });
 export type SweepResult = z.infer<typeof SweepResult>;
+
+export const PythonStatus = z.object({
+  /** absent: the Project declares no Python environment. */
+  state: z.enum(["absent", "preparing", "ready", "failed"]),
+  /** Interpreter version once ready, e.g. "3.12.3". */
+  version: z.string().optional(),
+  dependencies: z.array(z.string()).default([]),
+  /** Pinned packages from the lock file. */
+  locked: z.array(z.string()).default([]),
+  error: z.string().optional(),
+  /** Recent output of the environment tooling, newest last. */
+  log: z.array(z.string()).default([]),
+});
+export type PythonStatus = z.infer<typeof PythonStatus>;

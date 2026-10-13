@@ -114,6 +114,7 @@ describe("Log Replay", () => {
     const info = await recordBench(c, 800);
 
     const replayed = collectSamples(c, [gx.handle], (m) => m.get(gx.handle)!.values.length >= 300, 5000);
+    const ended = waitForSource(c, (s) => s.replay?.playing === false && s.replay.positionMs === s.replay.durationMs, 8000);
     const t0 = Date.now();
     const st = await c.request("source.startReplay", { device: "bench", recording: "run1" });
     expect(st).toMatchObject({ kind: "replay", replay: { recording: "run1", playing: true, speed: 1 } });
@@ -125,7 +126,7 @@ describe("Log Replay", () => {
     }
     // plays in real time: 300 samples at 500 Hz ≈ 0.6 s
     expect(Date.now() - t0).toBeGreaterThan(400);
-    await waitForSource(c, (s) => s.replay?.playing === false && s.replay.positionMs === s.replay.durationMs, 5000);
+    await ended;
   });
 
   it("pauses, seeks and changes speed", async () => {

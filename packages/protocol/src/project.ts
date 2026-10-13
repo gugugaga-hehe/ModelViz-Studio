@@ -73,10 +73,20 @@ export const DeviceConfig = z.object({
 });
 export type DeviceConfig = z.infer<typeof DeviceConfig>;
 
+/** Python environment the Project's Python Blocks run in (ADR-0005). */
+export const PythonConfig = z.object({
+  /** Interpreter request passed to uv, e.g. "3.12". Defaults to whatever uv finds. */
+  version: z.string().optional(),
+  /** Requirement specifiers, e.g. "numpy>=2", "scipy". */
+  dependencies: z.array(z.string()).default([]),
+});
+export type PythonConfig = z.infer<typeof PythonConfig>;
+
 export const ProjectManifest = z.object({
   schemaVersion: z.literal(PROJECT_SCHEMA_VERSION),
   name: z.string().min(1),
   devices: z.array(DeviceConfig).default([]),
+  python: PythonConfig.optional(),
 });
 export type ProjectManifest = z.infer<typeof ProjectManifest>;
 

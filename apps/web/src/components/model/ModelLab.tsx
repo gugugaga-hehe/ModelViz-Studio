@@ -6,6 +6,7 @@ import { AnalysisPanel } from "./AnalysisPanel";
 import { DiscretizePanel } from "./DiscretizePanel";
 import { FileEditor } from "./FileEditor";
 import { LoopTemplateForm } from "./LoopTemplateForm";
+import { PythonPanel } from "./PythonPanel";
 import { SweepPanel } from "./SweepPanel";
 
 export function ModelLab() {
@@ -63,6 +64,9 @@ export function ModelLab() {
           {systems.length === 0 && <p className="text-xs text-muted">{t("model.noSystems")}</p>}
           <ul>{systems.map((s) => item(s.path, s.name, s.issues.length > 0))}</ul>
         </section>
+        <div className="mt-auto border-t border-border pt-2">
+          <PythonPanel />
+        </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
         <div className={`flex min-h-0 min-w-0 rounded-lg border border-border bg-surface p-3 ${open ? "flex-1" : "flex-none"}`}>
