@@ -124,8 +124,10 @@ describe("Log Replay", () => {
       expect(t).toBeGreaterThanOrEqual(info.startedAt);
       expect(t).toBeLessThanOrEqual(info.startedAt + info.durationMs);
     }
-    // plays in real time: 300 samples at 500 Hz ≈ 0.6 s
-    expect(Date.now() - t0).toBeGreaterThan(400);
+    // plays with the original timing: wall-clock time ≥ the span of the replayed Host Timestamps
+    const span = r.hostTimes.at(-1)! - r.hostTimes[0]!;
+    expect(span).toBeGreaterThan(100);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(span - 50);
     await ended;
   });
 
