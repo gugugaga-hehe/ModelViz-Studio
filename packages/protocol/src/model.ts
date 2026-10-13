@@ -141,6 +141,8 @@ export const SystemInfo = z.object({
   sampleRateHz: z.number().optional(),
   inputs: z.array(z.string()).default([]),
   outputs: z.array(z.string()).default([]),
+  /** All Blocks are linear (so an analytic Frequency Response exists). */
+  linear: z.boolean().default(false),
   /** Every Block input Port (`block.port`), e.g. for choosing where to break a loop. */
   ports: z.array(z.string()).default([]),
   /** Block Parameters available for sweeps and overrides, per System Block. */
@@ -247,10 +249,19 @@ export const FrequencyAnalysisRequest = z.object({
   input: z.string().optional(),
   fMinHz: z.number().positive().optional(),
   fMaxHz: z.number().positive().optional(),
-  points: z.number().int().min(10).max(5000).default(400),
+  points: z.number().int().min(2).max(5000).default(400),
   parameters: z.record(z.string(), z.record(z.string(), z.number())).default({}),
   /** Also compute the loop transfer broken at this input Port (e.g. "plant.u") and its margins. */
   openLoopAt: z.string().optional(),
+  /**
+   * analytic: from the linear model; measured: simulate stepped sines and estimate the
+   * response (works for nonlinear Systems); auto: analytic when possible, else measured.
+   */
+  method: z.enum(["auto", "analytic", "measured"]).default("auto"),
+  /** Measured only: sine amplitude (matters for nonlinear Systems). */
+  amplitude: z.number().positive().default(1),
+  /** Measured only: id for `analysis.progress` events and `analysis.cancel`. */
+  id: z.string().optional(),
 });
 export type FrequencyAnalysisRequest = z.infer<typeof FrequencyAnalysisRequest>;
 

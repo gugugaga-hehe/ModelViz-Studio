@@ -155,7 +155,10 @@
     "domain": {
       "continuous": "連續 H(jω)",
       "discrete": "離散 H(e^jωT)"
-    }
+    },
+    "methodLabel": "方法",
+    "methodAuto": "自動（{{method}}）",
+    "measureAmplitude": "量測振幅"
   },
   "disc": {
     "title": "Discretization",

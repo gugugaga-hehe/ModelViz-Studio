@@ -148,7 +148,9 @@ describe.skipIf(!hasUv)("Python Blocks", () => {
       "systems/gain.yaml": single("blocks/gain.yaml"),
     });
     expect((await c.request("blocks.list", {}))[0]).toMatchObject({ linear: true, domain: "python" });
-    await expect(c.request("analysis.frequency", { system: "systems/gain.yaml" })).rejects.toThrow(/Python Block, which has no analytic model/);
+    await expect(c.request("analysis.frequency", { system: "systems/gain.yaml", method: "analytic" })).rejects.toThrow(
+      /Python Block, which has no analytic model/,
+    );
   });
 
   it("needs the Project's Python environment", async () => {

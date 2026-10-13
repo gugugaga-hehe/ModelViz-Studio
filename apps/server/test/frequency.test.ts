@@ -124,7 +124,9 @@ describe("analytic Frequency Response", () => {
     await using h = await harness();
     const c = await h.client();
     await modelProject(h, c, { "blocks/sq.yaml": "kind: formula\noutputs:\n  y: u^2\n", "systems/sq.yaml": single("blocks/sq.yaml") });
-    await expect(c.request("analysis.frequency", { system: "systems/sq.yaml" })).rejects.toThrow(/needs a linear System: g .* not declared linear/);
+    await expect(c.request("analysis.frequency", { system: "systems/sq.yaml", method: "analytic" })).rejects.toThrow(
+      /needs a linear System: g .* not declared linear/,
+    );
   });
 });
 
