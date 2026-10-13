@@ -173,5 +173,7 @@ export const RecordingInfo = z.object({
   bytes: z.number(),
   /** Still being written. */
   active: z.boolean(),
+  /** `mvrec`: raw Device bytes (ADR-0007); `csv`: an imported table of values. */
+  format: z.enum(["mvrec", "csv"]),
 });
 export type RecordingInfo = z.infer<typeof RecordingInfo>;

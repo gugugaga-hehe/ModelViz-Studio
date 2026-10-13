@@ -102,6 +102,20 @@ export const Methods = {
     params: z.object({}),
     result: z.array(RecordingInfo),
   },
+  /**
+   * Import a CSV file (absolute path on the server's machine) as a Log Replay. The file is
+   * copied into the Project; its columns become Signals named `<name>/CSV.<column>`.
+   */
+  "csv.import": {
+    params: z.object({
+      path: z.string().min(1),
+      name: z.string().regex(/^[A-Za-z][A-Za-z0-9_-]*$/),
+      /** Column holding time; defaults to the first column. */
+      timeColumn: z.string().optional(),
+      timeUnit: z.enum(["s", "ms", "us"]).default("s"),
+    }),
+    result: RecordingInfo,
+  },
   /** Play a Recording back as a Log Replay Source, decoded with the current Frame Format. */
   "source.startReplay": {
     params: z.object({ device: z.string(), recording: z.string(), speed: z.number().positive().max(64).default(1) }),

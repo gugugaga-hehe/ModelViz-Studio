@@ -114,9 +114,9 @@ describe("TCP Transport", () => {
 
       conn = tcp.nextConnection();
       const lost = waitForSource(c, "lost");
+      const verifying = waitForSource(c, "verifying");
       tcp.dropAll();
       await lost;
-      const verifying = waitForSource(c, "verifying");
       const socket = await conn;
       await verifying;
       running = waitForSource(c, "running");
@@ -221,8 +221,9 @@ describe.skipIf(!hasSocat)("serial Transport (pseudo-terminal)", () => {
     await pty.ready;
     let tty = await open(pty.b, "r+");
     try {
+      const firstVerify = waitForSource(c, "verifying");
       await c.request("source.connect", { device: "bench", transport: { kind: "serial", path: pty.a, baudRate: 921600 } });
-      await waitForSource(c, "verifying");
+      await firstVerify;
       let running = waitForSource(c, "running");
       await tty.write(dev.dialectInfo());
       await running;
@@ -235,10 +236,11 @@ describe.skipIf(!hasSocat)("serial Transport (pseudo-terminal)", () => {
       pty.proc.kill();
       await lost;
       // replug at the same path
+      const reverify = waitForSource(c, "verifying");
       pty = ptyPair(h.dir);
       await pty.ready;
       tty = await open(pty.b, "r+");
-      await waitForSource(c, "verifying");
+      await reverify;
       running = waitForSource(c, "running");
       await tty.write(dev.dialectInfo());
       await running;

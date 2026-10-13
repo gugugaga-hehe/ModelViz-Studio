@@ -1,5 +1,15 @@
 import type { ReplayState } from "@modelviz/protocol";
-import type { RecordingReader } from "./recording.ts";
+
+/** Anything with time-ordered items that can be read in index ranges (Recordings, CSV imports). */
+export interface TimedSource<T extends { time: number }> {
+  readonly id: string;
+  /** Time of the first item (ms). */
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly chunkCount: number;
+  indexAt(positionMs: number): number;
+  read(from: number, to: number): Promise<T[]>;
+}
 
 /** How often the player wakes up to emit due chunks (ms). */
 const TICK_MS = 5;
@@ -7,10 +17,10 @@ const TICK_MS = 5;
 const READ_BATCH = 256;
 
 /**
- * Plays a Recording's chunks back with their original timing (scaled by speed).
- * Emits each chunk's original Host Timestamp so replayed Signals keep their times.
+ * Plays time-ordered items back with their original timing (scaled by speed).
+ * Each item is emitted with its original time, so replayed Signals keep their times.
  */
-export class ReplayPlayer {
+export class ReplayPlayer<T extends { time: number }> {
   private next = 0;
   private playing = false;
   private speed: number;
@@ -19,13 +29,13 @@ export class ReplayPlayer {
   private baseWall = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private busy = false;
-  private queue: { time: number; bytes: Uint8Array }[] = [];
+  private queue: T[] = [];
   /** Bumped on seek so an in-flight disk read cannot refill the queue with stale chunks. */
   private epoch = 0;
 
   constructor(
-    private readonly reader: RecordingReader,
-    private readonly emit: (bytes: Uint8Array, hostTime: number) => void,
+    private readonly reader: TimedSource<T>,
+    private readonly emit: (item: T) => void,
     private readonly onChange: () => void,
     speed: number,
   ) {
@@ -107,7 +117,7 @@ export class ReplayPlayer {
         const head = this.queue[0]!;
         if (head.time > due) break;
         this.queue.shift();
-        this.emit(head.bytes, head.time);
+        this.emit(head);
       }
       if (this.playing && this.next >= this.reader.chunkCount && !this.queue.length) {
         this.basePos = this.reader.durationMs;

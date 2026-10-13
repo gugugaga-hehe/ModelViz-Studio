@@ -75,6 +75,7 @@ export class Recorder {
       durationMs: this.first === null ? 0 : this.last - this.first,
       bytes: this.bytes,
       active: this.closed === null,
+      format: "mvrec",
     };
   }
 
@@ -157,6 +158,7 @@ export class RecordingReader {
       durationMs: this.durationMs,
       bytes: this.totalBytes,
       active: false,
+      format: "mvrec",
     };
   }
 
