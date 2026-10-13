@@ -48,12 +48,28 @@ export const VirtualDeviceConfig = z.object({
 });
 export type VirtualDeviceConfig = z.infer<typeof VirtualDeviceConfig>;
 
+/** The carrier of a Device's byte stream. Transports know nothing about Framing. */
+export const TransportConfig = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("serial"), path: z.string().min(1), baudRate: z.number().int().positive().default(115200) }),
+  z.object({ kind: z.literal("tcp"), host: z.string().min(1), port: z.number().int().min(1).max(65535) }),
+  z.object({
+    kind: z.literal("udp"),
+    /** Local port to receive datagrams on. */
+    localPort: z.number().int().min(1).max(65535),
+    remoteHost: z.string().optional(),
+    remotePort: z.number().int().min(1).max(65535).optional(),
+  }),
+]);
+export type TransportConfig = z.infer<typeof TransportConfig>;
+
 export const DeviceConfig = z.object({
   id: Identifier,
   /** Path of the Device's Frame Format file, relative to the Project folder. */
   frameFormat: z.string().min(1),
   /** How this Device behaves when run as a Virtual Device. */
   virtual: VirtualDeviceConfig.optional(),
+  /** Default Transport offered when connecting to the real Device. */
+  transport: TransportConfig.optional(),
 });
 export type DeviceConfig = z.infer<typeof DeviceConfig>;
 
@@ -99,6 +115,11 @@ export const FrameFormatFile = z.discriminatedUnion("framing", [
     /** MAVLink dialect XML, relative to the Frame Format file. */
     dialect: z.string().min(1),
     messages: z.record(z.string(), MessageOptions).default({}),
+    /**
+     * Message and Field through which the Device reports its dialect hash. When declared,
+     * no telemetry is accepted until the hash matches (ADR-0009).
+     */
+    dialectCheck: z.object({ message: z.string(), field: z.string() }).optional(),
   }),
 ]);
 export type FrameFormatFile = z.infer<typeof FrameFormatFile>;

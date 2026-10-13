@@ -33,9 +33,10 @@
   "devices": {
     "heading": "Device",
     "none": "此 Project 沒有 Device",
-    "running": "執行中",
     "startVirtual": "啟動 Virtual Device",
-    "stop": "停止"
+    "stop": "停止",
+    "connect": "連線…",
+    "dialectHash": "Dialect hash"
   },
   "plot": {
     "heading": "Signal",
@@ -52,5 +53,26 @@
     "missedTitle": "依 Device Timestamp 推算缺漏的 frame",
     "nominal": "Nominal Rate",
     "timingJumps": "時間跳動"
+  },
+  "source": {
+    "connecting": "連線中",
+    "verifying": "驗證 dialect 中",
+    "running": "執行中",
+    "lost": "連線中斷 — 重新連線中",
+    "rejected": "已拒絕",
+    "stopped": "已停止"
+  },
+  "connect": {
+    "title": "連線到 Device",
+    "transport": "Transport",
+    "serial": "序列埠",
+    "port": "連接埠",
+    "refresh": "重新整理連接埠",
+    "baudRate": "鮑率",
+    "host": "主機",
+    "tcpPort": "連接埠",
+    "localPort": "本機 UDP 連接埠",
+    "connect": "連線",
+    "cancel": "取消"
   }
 }

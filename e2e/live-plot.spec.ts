@@ -18,7 +18,7 @@ test("plots live Signals from a Virtual Device", async ({ page }) => {
 
     await expect(page.getByTestId("project-name")).toHaveText("Live bench");
     await page.getByTestId("device-bench").getByRole("button", { name: "Start Virtual Device" }).click();
-    await expect(page.getByTestId("device-bench")).toContainText("running");
+    await expect(page.getByTestId("device-bench").getByTestId("source-state")).toHaveText("running");
 
     const health = page.getByTestId("link-health-bench");
     await expect(health.getByTestId("message-health-BENCH_STATE")).toContainText("/500");
@@ -36,7 +36,7 @@ test("plots live Signals from a Virtual Device", async ({ page }) => {
     await expect.poll(async () => Number(await plot.getAttribute("data-samples"))).toBeGreaterThan(first + 1000);
 
     await page.getByTestId("device-bench").getByRole("button", { name: "Stop" }).click();
-    await expect(page.getByTestId("device-bench")).not.toContainText("running");
+    await expect(page.getByTestId("device-bench").getByTestId("source-state")).toHaveCount(0);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -4,7 +4,7 @@ import { type FieldGenerator, FrameFormatFile, type MessageOptions, type TimeUni
 import { parse } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
 import { type FieldValue, decodePayload, encodeFrame } from "./mavlink/codec.ts";
-import { DialectError, loadDialect } from "./mavlink/dialect.ts";
+import { DialectError, dialectHash, loadDialect } from "./mavlink/dialect.ts";
 import { Mavlink2Parser, type ParserStats } from "./mavlink/parser.ts";
 
 /**
@@ -54,6 +54,10 @@ export interface FrameEncoder {
 
 export interface FrameFormat {
   messages: MessageSpec[];
+  /** Fingerprint of the Message definitions, as 8 hex digits (ADR-0009). */
+  dialectHash: string;
+  /** Where the Device reports its dialect hash, if the Frame Format asks for a check. */
+  dialectCheck?: { message: string; field: string };
   createDecoder(): FrameDecoder;
   createEncoder(): FrameEncoder;
 }
@@ -75,6 +79,14 @@ export async function loadFrameFormat(projectPath: string, relPath: string): Pro
   switch (file.framing) {
     case "mavlink2":
       format = await loadMavlink2(resolve(dirname(path), file.dialect));
+  }
+  if (file.dialectCheck) {
+    const { message, field } = file.dialectCheck;
+    const f = format.messages.find((m) => m.name === message)?.fields.find((x) => x.name === field);
+    if (!f || !f.integer || f.arrayLength) {
+      throw new ProtocolFailure("invalid_project", `Frame Format ${relPath}: dialectCheck needs an integer Field (${message}.${field})`);
+    }
+    format.dialectCheck = file.dialectCheck;
   }
   for (const [name, opts] of Object.entries(file.messages)) {
     const spec = format.messages.find((m) => m.name === name);
@@ -131,6 +143,7 @@ async function loadMavlink2(dialectPath: string): Promise<FrameFormat> {
   }));
   return {
     messages,
+    dialectHash: dialectHash(dialect),
     createDecoder() {
       const parser = new Mavlink2Parser(dialect);
       return {

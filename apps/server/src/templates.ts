@@ -26,6 +26,8 @@ const VIRTUAL_BENCH_DEVICES = `devices:
     # Behaviour when this Device is run as a Virtual Device.
     virtual:
       messages:
+        DIALECT_INFO:
+          rateHz: 1
         HEARTBEAT:
           rateHz: 1
           fields:
@@ -51,6 +53,8 @@ const VIRTUAL_BENCH_FILES: Record<string, string> = {
   "frame-formats/bench.yaml": `# Frame Format: how to talk to the bench Device.
 framing: mavlink2
 dialect: ../dialects/bench.xml
+# The Device must report this dialect's hash before telemetry is accepted.
+dialectCheck: { message: DIALECT_INFO, field: hash }
 messages:
   HEARTBEAT:
     nominalRateHz: 1
@@ -78,6 +82,10 @@ messages:
       <field type="uint32_t" name="custom_mode">Firmware-specific mode.</field>
       <field type="uint8_t" name="system_status">System status flag.</field>
       <field type="uint8_t_mavlink_version" name="mavlink_version">MAVLink version.</field>
+    </message>
+    <message id="42002" name="DIALECT_INFO">
+      <description>Fingerprint of the dialect the firmware was built with.</description>
+      <field type="uint32_t" name="hash">Dialect hash.</field>
     </message>
     <message id="42000" name="BENCH_STATE">
       <description>Control loop state of the bench Device.</description>

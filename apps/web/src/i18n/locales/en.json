@@ -33,9 +33,10 @@
   "devices": {
     "heading": "Devices",
     "none": "No Devices in this Project",
-    "running": "running",
     "startVirtual": "Start Virtual Device",
-    "stop": "Stop"
+    "stop": "Stop",
+    "connect": "Connect…",
+    "dialectHash": "Dialect hash"
   },
   "plot": {
     "heading": "Signals",
@@ -52,5 +53,26 @@
     "missedTitle": "Frames missing according to Device Timestamps",
     "nominal": "Nominal Rate",
     "timingJumps": "Timing jumps"
+  },
+  "source": {
+    "connecting": "connecting",
+    "verifying": "verifying dialect",
+    "running": "running",
+    "lost": "link lost — reconnecting",
+    "rejected": "rejected",
+    "stopped": "stopped"
+  },
+  "connect": {
+    "title": "Connect to Device",
+    "transport": "Transport",
+    "serial": "Serial port",
+    "port": "Port",
+    "refresh": "Refresh ports",
+    "baudRate": "Baud rate",
+    "host": "Host",
+    "tcpPort": "Port",
+    "localPort": "Local UDP port",
+    "connect": "Connect",
+    "cancel": "Cancel"
   }
 }

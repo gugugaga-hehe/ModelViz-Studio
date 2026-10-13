@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TransportConfig } from "./project.ts";
 
 /**
  * Signal names are `<device>/<Message>.<Field>`; array Fields expand to `<Field>[i]`.
@@ -28,6 +29,9 @@ export const DeviceInfo = z.object({
   virtual: z.boolean(),
   /** Problem loading the Device's Frame Format, if any. */
   error: z.string().optional(),
+  /** Hash the Device must report when the Frame Format declares a dialect check (hex). */
+  dialectHash: z.string().optional(),
+  transport: TransportConfig.optional(),
 });
 export type DeviceInfo = z.infer<typeof DeviceInfo>;
 
@@ -57,13 +61,26 @@ export const LinkHealth = z.object({
 });
 export type LinkHealth = z.infer<typeof LinkHealth>;
 
-export const SourceKind = z.enum(["virtual"]);
+export const SourceKind = z.enum(["virtual", "serial", "tcp", "udp"]);
 export type SourceKind = z.infer<typeof SourceKind>;
+
+/**
+ * - `connecting`: Transport opening (or reopening after `lost`)
+ * - `verifying`: connected, waiting for the Device's dialect hash
+ * - `running`: telemetry flowing
+ * - `lost`: Transport dropped; reconnecting automatically
+ * - `rejected`: refused (e.g. dialect hash mismatch); see `error`
+ * - `stopped`: stopped by the user
+ */
+export const SourceStatus = z.enum(["connecting", "verifying", "running", "lost", "rejected", "stopped"]);
+export type SourceStatus = z.infer<typeof SourceStatus>;
 
 export const SourceState = z.object({
   device: z.string(),
   kind: SourceKind,
-  state: z.enum(["running", "stopped"]),
+  state: SourceStatus,
+  transport: TransportConfig.optional(),
+  error: z.string().optional(),
 });
 export type SourceState = z.infer<typeof SourceState>;
 
@@ -125,3 +142,12 @@ export function decodeSignalChunk(data: ArrayBuffer): SignalChunk | null {
     ...(hasHost ? { hostTimes: new Float64Array(data, HEADER + count * 16, count) } : {}),
   };
 }
+
+export const SerialPortInfo = z.object({
+  path: z.string(),
+  manufacturer: z.string().optional(),
+  serialNumber: z.string().optional(),
+  vendorId: z.string().optional(),
+  productId: z.string().optional(),
+});
+export type SerialPortInfo = z.infer<typeof SerialPortInfo>;

@@ -173,3 +173,21 @@ function parseField(a: RawField, message: string): Omit<FieldDef, "offset" | "ex
     ...(a["@_units"] ? { units: a["@_units"] } : {}),
   };
 }
+
+/**
+ * Dialect fingerprint the Device must report (ADR-0009): FNV-1a 32-bit over one line per
+ * Message, sorted by id: "<id> <NAME> <crcExtra> <payloadLength>\n". It changes whenever a
+ * Message is added, removed, renamed, or its fields change (including extensions).
+ * Returned as 8 lowercase hex digits; firmware sends the same value as an unsigned integer.
+ */
+export function dialectHash(dialect: Dialect): string {
+  let h = 0x811c9dc5;
+  for (const m of dialect.messages) {
+    const line = `${m.id} ${m.name} ${m.crcExtra} ${m.payloadLength}\n`;
+    for (let i = 0; i < line.length; i++) {
+      h ^= line.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  }
+  return h.toString(16).padStart(8, "0");
+}

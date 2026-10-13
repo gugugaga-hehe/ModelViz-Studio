@@ -12,12 +12,13 @@ import {
   signalId,
 } from "@modelviz/protocol";
 import { WebSocket } from "ws";
-import { DeviceLink, type SignalTarget } from "./device-link.ts";
+import { ActiveSource, type SourceOptions } from "./active-source.ts";
+import type { DeviceLink, SignalTarget } from "./device-link.ts";
 import { ProtocolFailure } from "./errors.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
 import { SignalBus } from "./signal-bus.ts";
-import { VirtualDevice } from "./virtual-device.ts";
+import { listSerialPorts } from "./transports.ts";
 
 interface DeviceRuntime {
   config: DeviceConfig;
@@ -25,7 +26,7 @@ interface DeviceRuntime {
   error?: string;
   /** Signal targets for each Message's Field values. */
   signalMap: Map<string, SignalTarget[]>;
-  source: { kind: "virtual"; stop(): void } | null;
+  source: ActiveSource | null;
   /** Link of the current (or most recent) Source. */
   link: DeviceLink | null;
 }
@@ -78,6 +79,8 @@ export class Workbench {
           frameFormat: d.config.frameFormat,
           virtual: d.config.virtual !== undefined,
           ...(d.error ? { error: d.error } : {}),
+          ...(d.format?.dialectCheck ? { dialectHash: d.format.dialectHash } : {}),
+          ...(d.config.transport ? { transport: d.config.transport } : {}),
         }),
       );
     },
@@ -107,42 +110,57 @@ export class Workbench {
     },
     "sources.list": async () => {
       this.requireProject();
-      return [...this.devices.values()].filter((d) => d.source).map((d) => this.sourceState(d));
+      return [...this.devices.values()].filter((d) => d.source?.active).map((d) => d.source!.state());
     },
     "source.startVirtual": async (p) => {
       const { device } = Methods["source.startVirtual"].params.parse(p);
-      const d = this.device(device);
-      if (d.source) throw new ProtocolFailure("conflict", `Device ${device} already has a running Source`);
-      if (!d.format) throw new ProtocolFailure("invalid_project", d.error ?? `Device ${device} has no Frame Format`);
-      if (!d.config.virtual) throw new ProtocolFailure("invalid_project", `Device ${device} has no virtual configuration`);
-      const link = new DeviceLink(d.config.id, d.format, d.signalMap, (h, t, v, host) => this.bus.publish(h, t, v, host));
-      let vd: VirtualDevice;
-      try {
-        vd = new VirtualDevice(d.format, d.config.virtual, (bytes) => link.ingest(bytes));
-      } catch (e) {
-        throw new ProtocolFailure("invalid_project", (e as Error).message);
-      }
-      vd.start();
-      d.link = link;
-      d.source = { kind: "virtual", stop: () => vd.stop() };
-      const state = this.sourceState(d);
-      this.broadcast("source.changed", state);
-      return state;
+      const d = this.idleDevice(device);
+      const virtual = d.config.virtual;
+      if (!virtual) throw new ProtocolFailure("invalid_project", `Device ${device} has no virtual configuration`);
+      return this.startSource(d, (opts) => ActiveSource.virtual(opts, virtual));
     },
+    "source.connect": async (p) => {
+      const { device, transport } = Methods["source.connect"].params.parse(p);
+      const d = this.idleDevice(device);
+      return this.startSource(d, (opts) => ActiveSource.live(opts, transport));
+    },
+    "transports.listSerial": async () => listSerialPorts(),
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
       const d = this.device(device);
-      const kind = d.source?.kind ?? "virtual";
-      d.source?.stop();
-      d.source = null;
-      const state: SourceState = { device, kind, state: "stopped" };
-      this.broadcast("source.changed", state);
-      return state;
+      if (!d.source) return { device, kind: "virtual", state: "stopped" } satisfies SourceState;
+      d.source.stop();
+      return d.source.state();
     },
   };
 
-  private sourceState(d: DeviceRuntime): SourceState {
-    return { device: d.config.id, kind: d.source?.kind ?? "virtual", state: d.source ? "running" : "stopped" };
+  /** A Device that can take a new Source: loaded Frame Format, nothing running. */
+  private idleDevice(id: string): DeviceRuntime & { format: FrameFormat } {
+    const d = this.device(id);
+    if (d.source?.active) throw new ProtocolFailure("conflict", `Device ${id} already has a running Source`);
+    if (!d.format) throw new ProtocolFailure("invalid_project", d.error ?? `Device ${id} has no Frame Format`);
+    return d as DeviceRuntime & { format: FrameFormat };
+  }
+
+  private startSource(
+    d: DeviceRuntime & { format: FrameFormat },
+    create: (opts: SourceOptions) => ActiveSource,
+  ): SourceState {
+    let source: ActiveSource;
+    try {
+      source = create({
+        device: d.config.id,
+        format: d.format,
+        targets: d.signalMap,
+        publish: (h, t, v, host) => this.bus.publish(h, t, v, host),
+        onState: (state) => this.broadcast("source.changed", state),
+      });
+    } catch (e) {
+      throw new ProtocolFailure("invalid_project", (e as Error).message);
+    }
+    d.source = source;
+    d.link = source.link;
+    return source.state();
   }
 
   private requireProject(): ProjectInfo {
@@ -158,7 +176,7 @@ export class Workbench {
   }
 
   private reportHealth(): void {
-    for (const d of this.devices.values()) if (d.source && d.link) this.broadcast("link.health", d.link.health());
+    for (const d of this.devices.values()) if (d.source?.active && d.link) this.broadcast("link.health", d.link.health());
   }
 
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {
