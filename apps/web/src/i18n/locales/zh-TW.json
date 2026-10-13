@@ -143,7 +143,19 @@
     "stimulus": "Stimulus 響應",
     "amplitude": "振幅",
     "duration": "時長 [s]",
-    "run": "執行"
+    "run": "執行",
+    "bode": "Frequency Response（Bode）",
+    "polezero": "Pole-zero 圖",
+    "loopAt": "迴路斷開於",
+    "closedOnly": "（僅閉迴路）",
+    "method": {
+      "analytic": "解析",
+      "measured": "量測"
+    },
+    "domain": {
+      "continuous": "連續 H(jω)",
+      "discrete": "離散 H(e^jωT)"
+    }
   },
   "disc": {
     "title": "Discretization",
@@ -158,5 +170,31 @@
     "continuous": "連續",
     "discrete": "離散",
     "needsBlock": "請開啟連續線性 Block"
+  },
+  "metrics": {
+    "output": "輸出",
+    "final": "終值",
+    "overshoot": "超越量 [%]",
+    "rise": "上升時間 [s]",
+    "settling": "2% 安定時間 [s]",
+    "peakTime": "峰值時間 [s]",
+    "dcGain": "DC [dB]",
+    "bandwidth": "頻寬 [Hz]",
+    "peakGain": "峰值 [dB]",
+    "peakHz": "峰值頻率 [Hz]",
+    "gainMargin": "增益裕度 [dB]",
+    "phaseCrossover": "於 [Hz]",
+    "phaseMargin": "相位裕度 [°]",
+    "gainCrossover": "於 [Hz]"
+  },
+  "pz": {
+    "title": "Pole-zero 圖",
+    "sPlane": "s 平面",
+    "zPlane": "z 平面",
+    "stable": "穩定",
+    "unstable": "不穩定",
+    "poles": "極點",
+    "zeros": "零點",
+    "zerosOf": "零點所屬輸出"
   }
 }

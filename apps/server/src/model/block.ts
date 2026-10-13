@@ -115,6 +115,21 @@ function evalAll(list: Expr[], scope: Record<string, number>, where: string): nu
   });
 }
 
+/** Gain matrix of a linear formula Block, found by probing unit inputs. */
+export function formulaGain(def: BlockDef, overrides: Record<string, number>): number[][] {
+  const f = def.file;
+  if (f.kind !== "formula") throw new BlockError(`${def.path} is not a formula`);
+  const rt = instantiate(def, overrides, 1);
+  const y0 = rt.output(f.inputs.map(() => 0), 0);
+  if (y0.some((v) => Math.abs(v) > 1e-12)) throw new BlockError(`${def.path} is not linear (non-zero output for zero input)`);
+  const cols = f.inputs.map((_, i) => rt.output(f.inputs.map((_, j) => (j === i ? 1 : 0)), 0));
+  const twice = f.inputs.map((_, i) => rt.output(f.inputs.map((_, j) => (j === i ? 2 : 0)), 0));
+  cols.forEach((c, i) => c.forEach((v, o) => {
+    if (Math.abs(twice[i]![o]! - 2 * v) > 1e-9 * Math.max(1, Math.abs(v))) throw new BlockError(`${def.path} is declared linear but is not`);
+  }));
+  return Object.keys(f.outputs).map((_, o) => cols.map((c) => c[o]!));
+}
+
 /** Linear model of a linear Block with given parameters (for frequency-domain Analyses). */
 export function linearModel(def: BlockDef, overrides: Record<string, number>): { ss: StateSpace; domain: "continuous" | "discrete" } | null {
   const p = parameterValues(def, overrides);
@@ -189,13 +204,16 @@ function stateSpaceRuntime(def: BlockDef, ss: StateSpace, domain: "continuous" |
   };
 }
 
-function differenceRuntime(
-  def: BlockDef,
-  equations: Record<string, string>,
-  inputs: string[],
-  params: Record<string, number>,
-  dt: number,
-): BlockRuntime {
+interface CompiledDifference {
+  outputs: string[];
+  signals: Set<string>;
+  maxDelay: number;
+  feedthrough: boolean;
+  /** One per output; scope names are __<signal>_<delay>. */
+  compiled: Compiled[];
+}
+
+function compileDifference(def: BlockDef, equations: Record<string, string>, inputs: string[]): CompiledDifference {
   const outputs = Object.keys(equations);
   const signals = new Set([...inputs, ...outputs]);
   let maxDelay = 1;
@@ -216,6 +234,54 @@ function differenceRuntime(
       throw new BlockError(`${def.path} equation ${out}: ${(e as ExprError).message}`);
     }
   });
+  return { outputs, signals, maxDelay, feedthrough, compiled };
+}
+
+/**
+ * Transfer function in z of a linear single-input single-output difference equation,
+ * found by probing each delayed term's coefficient.
+ */
+export function differenceTransferFunction(def: BlockDef, overrides: Record<string, number>): { num: number[]; den: number[] } {
+  const f = def.file;
+  if (f.kind !== "difference-equation") throw new BlockError(`${def.path} is not a difference equation`);
+  if (f.inputs.length !== 1 || Object.keys(f.equations).length !== 1) {
+    throw new BlockError(`${def.path}: frequency-domain Analyses support single-input single-output difference equations`);
+  }
+  const p = parameterValues(def, overrides);
+  const d = compileDifference(def, f.equations, f.inputs);
+  const [u] = f.inputs as [string];
+  const [y] = d.outputs as [string];
+  const K = d.maxDelay;
+  const zeroScope = () => {
+    const sc: Record<string, number> = { ...p, t: 0, dt: 0 };
+    for (let k = 0; k <= K; k++) {
+      sc[`__${u}_${k}`] = 0;
+      sc[`__${y}_${k}`] = 0;
+    }
+    return sc;
+  };
+  const eq = d.compiled[0]!;
+  const offset = eq(zeroScope());
+  if (Math.abs(offset) > 1e-12) throw new BlockError(`${def.path} is not linear (constant term ${offset})`);
+  const coef = (name: string) => {
+    const sc = zeroScope();
+    sc[name] = 1;
+    return eq(sc);
+  };
+  // y[n] = Σ a_k y[n−k] + Σ b_k u[n−k]  ⇒  H(z) = Σ b_k z^{K−k} / (z^K − Σ a_k z^{K−k})
+  const num = Array.from({ length: K + 1 }, (_, k) => coef(`__${u}_${k}`));
+  const den = Array.from({ length: K + 1 }, (_, k) => (k === 0 ? 1 : -coef(`__${y}_${k}`)));
+  return { num, den };
+}
+
+function differenceRuntime(
+  def: BlockDef,
+  equations: Record<string, string>,
+  inputs: string[],
+  params: Record<string, number>,
+  dt: number,
+): BlockRuntime {
+  const { outputs, signals, maxDelay, feedthrough, compiled } = compileDifference(def, equations, inputs);
   // history[name][k] = value k samples ago (k = 1 … maxDelay)
   let history: Record<string, number[]> = {};
   const clear = () => {

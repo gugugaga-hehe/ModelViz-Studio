@@ -208,3 +208,19 @@ describe("Log Replay", () => {
     await expect(c.request("replay.control", { device: "bench", action: "pause" })).rejects.toMatchObject({ code: "conflict" });
   });
 });
+
+describe("Log Replay robustness", () => {
+  it("rejects the replay instead of crashing when its Recording disappears", async () => {
+    await using h = await harness();
+    const c = await h.client();
+    const { path } = await benchProject(h, c);
+    await recordBench(c, 1500);
+    const rejected = waitForSource(c, (s) => s.state === "rejected", 8000);
+    await c.request("source.startReplay", { device: "bench", recording: "run1", speed: 0.25 });
+    const { rm } = await import("node:fs/promises");
+    await rm(join(path, "recordings"), { recursive: true, force: true });
+    expect((await rejected).error).toMatch(/Log Replay failed: .*ENOENT/);
+    // the server is still alive
+    expect(await c.request("project.current", {})).toMatchObject({ path });
+  });
+});

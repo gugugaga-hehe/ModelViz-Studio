@@ -9,6 +9,10 @@ const allowedOrigins = (process.env.MODELVIZ_ALLOWED_ORIGINS ?? "http://localhos
   .split(",")
   .filter(Boolean);
 
+// A single failing operation must not take the whole workbench down.
+process.on("unhandledRejection", (e) => console.error("Unhandled rejection:", e));
+process.on("uncaughtException", (e) => console.error("Uncaught exception:", e));
+
 const server = await startServer({ port, staticDir, allowedOrigins });
 console.log(`ModelViz Studio server listening on ${server.url}${staticDir ? "" : " (no web UI build found)"}`);
 

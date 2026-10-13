@@ -182,6 +182,7 @@ linear: true
       plant: "blocks/plant.yaml",
     });
     expect(info).toMatchObject({ path: "systems/loop.yaml", name: "loop", inputs: ["r"], outputs: ["y", "u", "e"], issues: [] });
+    expect(info.ports).toEqual(["error.in1", "error.in2", "controller.u", "plant.u"]);
     const text = await readFile(join(path, "systems/loop.yaml"), "utf8");
     expect(text).toContain("kind: sum");
     expect(text).toContain("from: error.out");

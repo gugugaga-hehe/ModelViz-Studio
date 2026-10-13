@@ -5,6 +5,9 @@ import {
   DiscretizationComparison,
   DiscretizationRequest,
   DiscretizationResult,
+  FrequencyAnalysisRequest,
+  FrequencyAnalysisResult,
+  PoleZeroResult,
   Stimulus,
   SystemInfo,
   TimeAnalysisRequest,
@@ -197,6 +200,19 @@ export const Methods = {
       durationS: z.number().positive().max(600),
     }),
     result: DiscretizationComparison,
+  },
+  /** Analytic Frequency Response of a linear System (and optionally its loop transfer and margins). */
+  "analysis.frequency": {
+    params: FrequencyAnalysisRequest,
+    result: FrequencyAnalysisResult,
+  },
+  "analysis.poleZero": {
+    params: z.object({
+      system: z.string(),
+      input: z.string().optional(),
+      parameters: z.record(z.string(), z.record(z.string(), z.number())).default({}),
+    }),
+    result: PoleZeroResult,
   },
   "source.stop": {
     params: z.object({ device: z.string() }),

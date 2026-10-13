@@ -20,6 +20,7 @@ import { ProtocolFailure } from "./errors.ts";
 import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate, writeProjectFile } from "./model/store.ts";
 import { loadSystem } from "./model/system.ts";
 import { compareDiscretization, discretizeBlock } from "./model/discretization-service.ts";
+import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts";
 import { runTimeAnalysis } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
@@ -259,6 +260,8 @@ export class Workbench {
       const req = Methods["analysis.discretization"].params.parse(p);
       return compareDiscretization(this.requireProject().path, req);
     },
+    "analysis.frequency": async (p) => runFrequencyAnalysis(this.requireProject().path, Methods["analysis.frequency"].params.parse(p)),
+    "analysis.poleZero": async (p) => runPoleZero(this.requireProject().path, Methods["analysis.poleZero"].params.parse(p)),
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();

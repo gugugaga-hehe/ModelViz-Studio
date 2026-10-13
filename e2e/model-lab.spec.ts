@@ -26,6 +26,21 @@ test("edits Blocks, builds a System from the Loop Template and runs a step respo
     const final = JSON.parse((await result.getAttribute("data-final"))!) as Record<string, number>;
     expect(final.y).toBeCloseTo(1, 2);
     await expect(result.locator("canvas")).toBeVisible();
+    await expect(page.getByTestId("step-metrics").getByTestId("metrics-y").locator('[data-metric="overshootPercent"]')).toHaveText(/^\d/);
+
+    // Bode with the loop broken at the Plant input, and the pole-zero map (PI 1 + Plant 2 + filter 1 states)
+    await analysis.getByLabel("Analysis", { exact: true }).selectOption("bode");
+    await analysis.getByLabel("Loop broken at").selectOption("plant.u");
+    await analysis.getByRole("button", { name: "Run" }).click();
+    const bode = page.getByTestId("bode-result");
+    await expect(bode).toHaveAttribute("data-method", "analytic");
+    await expect(bode).toContainText("analytic");
+    await expect(page.getByTestId("loop-metrics").locator('[data-metric="phaseMarginDeg"]')).toHaveText(/^\d/);
+    await analysis.getByLabel("Analysis", { exact: true }).selectOption("polezero");
+    await analysis.getByRole("button", { name: "Run" }).click();
+    await expect(page.getByTestId("pole-zero-plot")).toHaveAttribute("data-poles", "4");
+    await expect(page.getByTestId("pole-zero-plot")).toContainText("stable");
+    await analysis.getByLabel("Analysis", { exact: true }).selectOption("step");
 
     // Discretization of the gyro filter: compare and save
     await page.getByRole("button", { name: /^gyro-lpf\.yaml/ }).click();

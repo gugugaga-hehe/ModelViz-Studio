@@ -1,13 +1,22 @@
-import type { Stimulus, TimeAnalysisResult } from "@modelviz/protocol";
+import type { FrequencyAnalysisResult, PoleZeroResult, Stimulus, TimeAnalysisResult } from "@modelviz/protocol";
 import { Play } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../../state/session";
-import { SeriesPlot } from "./SeriesPlot";
+import { MetricsTable } from "./MetricsTable";
+import { PoleZeroPlot } from "./PoleZeroPlot";
+import { type Series, SeriesPlot } from "./SeriesPlot";
+
+/** Foreground colour of the current theme (canvas cannot read CSS variables). */
+const fg = () => getComputedStyle(document.documentElement).getPropertyValue("--mv-fg").trim() || "#111827";
 
 const PALETTE = ["#64748b", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"];
-type Kind = "step" | "impulse" | "stimulus";
+type Kind = "step" | "impulse" | "stimulus" | "bode" | "polezero";
 type StimKind = "sine" | "chirp" | "sineSweep";
+type Result =
+  | { kind: "time"; data: TimeAnalysisResult }
+  | { kind: "bode"; data: FrequencyAnalysisResult }
+  | { kind: "polezero"; data: PoleZeroResult };
 
 export function AnalysisPanel({ system }: { system: string | null }) {
   const { t } = useTranslation();
@@ -19,7 +28,8 @@ export function AnalysisPanel({ system }: { system: string | null }) {
   const [f1, setF1] = useState("50");
   const [amp, setAmp] = useState("1");
   const [duration, setDuration] = useState("1");
-  const [result, setResult] = useState<TimeAnalysisResult | null>(null);
+  const [loopAt, setLoopAt] = useState("");
+  const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -27,24 +37,35 @@ export function AnalysisPanel({ system }: { system: string | null }) {
     if (system) setSelected(system);
   }, [system]);
   const current = selected || systems[0]?.path || "";
+  const info = systems.find((s) => s.path === current);
 
   async function run(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const stimulus: Stimulus =
-      stim === "sine"
-        ? { kind: "sine", freqHz: Number(f0), amplitude: Number(amp) }
-        : { kind: stim, f0Hz: Number(f0), f1Hz: Number(f1), amplitude: Number(amp) };
     try {
-      setResult(
-        await client.request("analysis.time", {
-          system: current,
-          kind,
-          durationS: Number(duration),
-          ...(kind === "stimulus" ? { stimulus } : {}),
-        }),
-      );
+      if (kind === "bode") {
+        setResult({
+          kind: "bode",
+          data: await client.request("analysis.frequency", { system: current, ...(loopAt ? { openLoopAt: loopAt } : {}) }),
+        });
+      } else if (kind === "polezero") {
+        setResult({ kind: "polezero", data: await client.request("analysis.poleZero", { system: current }) });
+      } else {
+        const stimulus: Stimulus =
+          stim === "sine"
+            ? { kind: "sine", freqHz: Number(f0), amplitude: Number(amp) }
+            : { kind: stim, f0Hz: Number(f0), f1Hz: Number(f1), amplitude: Number(amp) };
+        setResult({
+          kind: "time",
+          data: await client.request("analysis.time", {
+            system: current,
+            kind,
+            durationS: Number(duration),
+            ...(kind === "stimulus" ? { stimulus } : {}),
+          }),
+        });
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -53,12 +74,13 @@ export function AnalysisPanel({ system }: { system: string | null }) {
   }
 
   const input = "rounded border border-border bg-surface px-2 py-1 text-xs";
+  const timeKind = kind === "step" || kind === "impulse" || kind === "stimulus";
   return (
-    <section aria-label={t("analysis.title")} className="flex min-h-0 flex-1 flex-col gap-2" data-testid="analysis-panel">
+    <section aria-label={t("analysis.title")} className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto" data-testid="analysis-panel">
       <form onSubmit={run} className="flex flex-wrap items-end gap-2 text-xs">
         <label className="flex flex-col gap-1">
           {t("analysis.system")}
-          <select className={input} value={current} onChange={(e) => setSelected(e.target.value)}>
+          <select aria-label={t("analysis.system")} className={input} value={current} onChange={(e) => setSelected(e.target.value)}>
             {systems.map((s) => (
               <option key={s.path} value={s.path}>
                 {s.name}
@@ -69,10 +91,12 @@ export function AnalysisPanel({ system }: { system: string | null }) {
         </label>
         <label className="flex flex-col gap-1">
           {t("analysis.kind")}
-          <select className={input} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+          <select aria-label={t("analysis.kind")} className={input} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
             <option value="step">{t("analysis.step")}</option>
             <option value="impulse">{t("analysis.impulse")}</option>
             <option value="stimulus">{t("analysis.stimulus")}</option>
+            <option value="bode">{t("analysis.bode")}</option>
+            <option value="polezero">{t("analysis.polezero")}</option>
           </select>
         </label>
         {kind === "stimulus" && (
@@ -101,10 +125,25 @@ export function AnalysisPanel({ system }: { system: string | null }) {
             </label>
           </>
         )}
-        <label className="flex w-20 flex-col gap-1">
-          {t("analysis.duration")}
-          <input className={input} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
-        </label>
+        {timeKind && (
+          <label className="flex w-20 flex-col gap-1">
+            {t("analysis.duration")}
+            <input aria-label={t("analysis.duration")} className={input} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
+          </label>
+        )}
+        {kind === "bode" && (
+          <label className="flex flex-col gap-1">
+            {t("analysis.loopAt")}
+            <select aria-label={t("analysis.loopAt")} className={input} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
+              <option value="">{t("analysis.closedOnly")}</option>
+              {(info?.ports ?? []).map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button type="submit" disabled={!current || busy} className="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 font-medium text-white disabled:opacity-40">
           <Play size={12} />
           {t("analysis.run")}
@@ -115,32 +154,132 @@ export function AnalysisPanel({ system }: { system: string | null }) {
           {error}
         </p>
       )}
-      <ResultPlot result={result} />
+      {result?.kind === "time" && <TimeResult result={result.data} />}
+      {result?.kind === "bode" && <BodeResult result={result.data} />}
+      {result?.kind === "polezero" && <PoleZeroView result={result.data} />}
     </section>
   );
 }
 
-function ResultPlot({ result }: { result: TimeAnalysisResult | null }) {
+function TimeResult({ result }: { result: TimeAnalysisResult }) {
+  const { t } = useTranslation();
   const series = useMemo(
     () =>
-      result
-        ? Object.keys(result.series).map((n, i) => ({
-            label: n,
-            values: result.series[n]!,
-            color: PALETTE[i % PALETTE.length]!,
-            dashed: n === result.input,
-          }))
-        : [],
+      Object.keys(result.series).map((n, i) => ({
+        label: n,
+        values: result.series[n]!,
+        color: PALETTE[i % PALETTE.length]!,
+        dashed: n === result.input,
+      })),
     [result],
   );
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 flex-1 flex-col gap-2"
       data-testid="analysis-result"
-      data-points={result?.times.length ?? 0}
-      data-final={result ? JSON.stringify(Object.fromEntries(Object.entries(result.series).map(([k, v]) => [k, v.at(-1)]))) : ""}
+      data-points={result.times.length}
+      data-final={JSON.stringify(Object.fromEntries(Object.entries(result.series).map(([k, v]) => [k, v.at(-1)])))}
     >
-      {result && <SeriesPlot x={result.times} series={series} />}
+      <SeriesPlot x={result.times} series={series} />
+      {result.metrics && (
+        <MetricsTable
+          testId="step-metrics"
+          rows={result.metrics}
+          columns={[
+            { key: "finalValue", label: t("metrics.final") },
+            { key: "overshootPercent", label: t("metrics.overshoot") },
+            { key: "riseTimeS", label: t("metrics.rise") },
+            { key: "settlingTimeS", label: t("metrics.settling") },
+            { key: "peakTimeS", label: t("metrics.peakTime") },
+          ]}
+        />
+      )}
     </div>
   );
+}
+
+function BodeResult({ result }: { result: FrequencyAnalysisResult }) {
+  const { t } = useTranslation();
+  const names = Object.keys(result.responses);
+  const build = (pick: "magnitudeDb" | "phaseDeg"): Series[] => {
+    const s: Series[] = names.map((n, i) => ({ label: n, values: result.responses[n]![pick], color: PALETTE[(i + 1) % PALETTE.length]! }));
+    if (result.loop) s.push({ label: `L @ ${result.loop.at}`, values: result.loop[pick], color: fg(), dashed: true });
+    return s;
+  };
+  const mag = useMemo(() => build("magnitudeDb"), [result]);
+  const phase = useMemo(() => build("phaseDeg"), [result]);
+  return (
+    <div className="flex flex-col gap-2" data-testid="bode-result" data-method={result.method} data-points={result.frequencies.length}>
+      <p className="text-xs text-muted">
+        {t(`analysis.method.${result.method}`)} · {t(`analysis.domain.${result.domain}`)}
+      </p>
+      <SeriesPlot x={result.frequencies} series={mag} logX xLabel="f [Hz]" height={200} testId="bode-magnitude" />
+      <SeriesPlot x={result.frequencies} series={phase} logX xLabel="f [Hz]" height={180} testId="bode-phase" />
+      <MetricsTable
+        testId="frequency-metrics"
+        rows={result.metrics}
+        columns={[
+          { key: "dcGainDb", label: t("metrics.dcGain") },
+          { key: "bandwidthHz", label: t("metrics.bandwidth") },
+          { key: "peakGainDb", label: t("metrics.peakGain") },
+          { key: "peakHz", label: t("metrics.peakHz") },
+        ]}
+      />
+      {result.loop && (
+        <MetricsTable
+          testId="loop-metrics"
+          rows={{ [`L @ ${result.loop.at}`]: result.loop as unknown as Record<string, number | null> }}
+          columns={[
+            { key: "gainMarginDb", label: t("metrics.gainMargin") },
+            { key: "phaseCrossoverHz", label: t("metrics.phaseCrossover") },
+            { key: "phaseMarginDeg", label: t("metrics.phaseMargin") },
+            { key: "gainCrossoverHz", label: t("metrics.gainCrossover") },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+function PoleZeroView({ result }: { result: PoleZeroResult }) {
+  const { t } = useTranslation();
+  const outputs = Object.keys(result.zeros);
+  const [output, setOutput] = useState(outputs[0] ?? "");
+  return (
+    <div className="flex flex-wrap items-start gap-4">
+      <PoleZeroPlot result={result} output={output} />
+      <div className="flex flex-col gap-2 text-xs">
+        <label className="flex flex-col gap-1">
+          {t("pz.zerosOf")}
+          <select className="rounded border border-border bg-surface px-2 py-1" value={output} onChange={(e) => setOutput(e.target.value)}>
+            {outputs.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        </label>
+        <div>
+          <div className="text-muted">{t("pz.poles")}</div>
+          <ul className="font-mono" data-testid="pole-list">
+            {result.poles.map((p, i) => (
+              <li key={i}>{fmtC(p)}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="text-muted">{t("pz.zeros")}</div>
+          <ul className="font-mono">
+            {(result.zeros[output] ?? []).map((p, i) => (
+              <li key={i}>{fmtC(p)}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function fmtC(c: { re: number; im: number }): string {
+  const r = Number(c.re.toPrecision(5));
+  const i = Number(Math.abs(c.im).toPrecision(5));
+  return i === 0 ? `${r}` : `${r} ${c.im < 0 ? "−" : "+"} ${i}j`;
 }

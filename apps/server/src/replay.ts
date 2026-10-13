@@ -33,6 +33,9 @@ export class ReplayPlayer<T extends { time: number }> {
   /** Bumped on seek so an in-flight disk read cannot refill the queue with stale chunks. */
   private epoch = 0;
 
+  /** Set when reading the source failed; playback stops. */
+  error: string | null = null;
+
   constructor(
     private readonly reader: TimedSource<T>,
     private readonly emit: (item: T) => void,
@@ -58,7 +61,14 @@ export class ReplayPlayer<T extends { time: number }> {
     this.basePos = this.position();
     this.baseWall = performance.now();
     this.playing = true;
-    this.timer ??= setInterval(() => void this.tick(), TICK_MS);
+    this.timer ??= setInterval(() => {
+      this.tick().catch((e: Error) => {
+        // e.g. the Recording was deleted while playing
+        this.error = e.message;
+        this.stop();
+        this.onChange();
+      });
+    }, TICK_MS);
     this.onChange();
   }
 

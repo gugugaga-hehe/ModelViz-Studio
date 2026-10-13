@@ -12,7 +12,22 @@ export interface Series {
 }
 
 /** Static x/y plot for Analysis results (x in seconds, not wall-clock time). */
-export function SeriesPlot({ x, series, testId, xLabel = "t [s]" }: { x: number[]; series: Series[]; testId?: string; xLabel?: string }) {
+export function SeriesPlot({
+  x,
+  series,
+  testId,
+  xLabel = "t [s]",
+  logX = false,
+  height,
+}: {
+  x: number[];
+  series: Series[];
+  testId?: string;
+  xLabel?: string;
+  /** Logarithmic x axis (frequency plots). */
+  logX?: boolean;
+  height?: number;
+}) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = host.current;
@@ -23,8 +38,8 @@ export function SeriesPlot({ x, series, testId, xLabel = "t [s]" }: { x: number[
     const plot = new uPlot(
       {
         width: el.clientWidth,
-        height: Math.max(200, el.clientHeight - 40),
-        scales: { x: { time: false } },
+        height: height ?? Math.max(200, el.clientHeight - 40),
+        scales: { x: logX ? { time: false, distr: 3, log: 10 } : { time: false } },
         series: [
           { label: xLabel },
           ...series.map((s) => ({
@@ -43,12 +58,19 @@ export function SeriesPlot({ x, series, testId, xLabel = "t [s]" }: { x: number[
       [x, ...series.map((s) => s.values)],
       el,
     );
-    const ro = new ResizeObserver(() => plot.setSize({ width: el.clientWidth, height: Math.max(200, el.clientHeight - 40) }));
+    const ro = new ResizeObserver(() => plot.setSize({ width: el.clientWidth, height: height ?? Math.max(200, el.clientHeight - 40) }));
     ro.observe(el);
     return () => {
       ro.disconnect();
       plot.destroy();
     };
-  }, [x, series, xLabel]);
-  return <div ref={host} className="min-h-56 flex-1 rounded border border-border bg-surface" data-testid={testId} data-points={x.length} />;
+  }, [x, series, xLabel, logX, height]);
+  return (
+    <div
+      ref={host}
+      className={`${height ? "" : "min-h-56 flex-1"} rounded border border-border bg-surface`}
+      data-testid={testId}
+      data-points={x.length}
+    />
+  );
 }
