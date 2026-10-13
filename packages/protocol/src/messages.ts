@@ -152,7 +152,7 @@ export const Methods = {
   /** Text files of the Project that users edit (Frame Formats, dialects, Blocks, Systems). */
   "files.list": {
     params: z.object({}),
-    result: z.array(z.object({ path: z.string(), kind: z.enum(["frame-format", "dialect", "block", "system", "other"]) })),
+    result: z.array(z.object({ path: z.string(), kind: z.enum(["frame-format", "dialect", "block", "system", "python", "other"]) })),
   },
   "files.read": {
     params: z.object({ path: z.string() }),

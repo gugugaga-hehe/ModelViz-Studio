@@ -1,5 +1,5 @@
 import { Boxes, Network, Plus } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSession } from "../../state/session";
 import { AnalysisPanel } from "./AnalysisPanel";
@@ -41,7 +41,14 @@ export function ModelLab() {
             <Boxes size={12} /> {t("model.blocks")}
           </h2>
           {blocks.length === 0 && <p className="text-xs text-muted">{t("model.noBlocks")}</p>}
-          <ul>{blocks.map((b) => item(b.path, b.path.replace(/^blocks\//, ""), !!b.error, b.kind ? ` · ${b.kind}` : ""))}</ul>
+          <ul>
+            {blocks.map((b) => (
+              <Fragment key={b.path}>
+                {item(b.path, b.path.replace(/^blocks\//, ""), !!b.error, b.kind ? ` · ${b.kind}` : "")}
+                {b.module && item(b.module, `↳ ${b.module}`, false)}
+              </Fragment>
+            ))}
+          </ul>
         </section>
         <section aria-labelledby="systems-heading">
           <div className="mb-1 flex items-center">

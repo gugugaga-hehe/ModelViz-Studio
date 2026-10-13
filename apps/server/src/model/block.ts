@@ -14,11 +14,13 @@ export interface BlockDef {
   inputs: string[];
   outputs: string[];
   parameters: Record<string, ParameterSpec>;
-  /** Continuous or discrete; formulas are memoryless and work at any rate. */
-  domain: "continuous" | "discrete" | "memoryless";
+  /** Continuous or discrete; formulas are memoryless and Python Blocks run at the System rate. */
+  domain: "continuous" | "discrete" | "memoryless" | "python";
   /** Rate a discrete Block was designed for. */
   sampleRateHz?: number;
   linear: boolean;
+  /** Python Blocks: absolute path of the module. */
+  modulePath?: string;
 }
 
 /** One executing Block inside a System, stepping one sample at a time. */
@@ -35,6 +37,20 @@ export interface BlockRuntime {
 }
 
 export async function loadBlock(projectPath: string, relPath: string): Promise<BlockDef> {
+  const def = await readBlock(projectPath, relPath);
+  if (def.file.kind === "python") {
+    const mod = resolve(projectPath, def.file.module);
+    try {
+      await readFile(mod);
+    } catch {
+      throw new BlockError(`${relPath}: Python module not found: ${def.file.module}`);
+    }
+    def.modulePath = mod;
+  }
+  return def;
+}
+
+async function readBlock(projectPath: string, relPath: string): Promise<BlockDef> {
   let text: string;
   try {
     text = await readFile(resolve(projectPath, relPath), "utf8");
@@ -50,7 +66,7 @@ export async function loadBlock(projectPath: string, relPath: string): Promise<B
 /** Builds and checks a Block definition from file contents (also for in-memory Blocks). */
 export function defineBlock(path: string, file: BlockFile): BlockDef {
   const def = describe(path, file);
-  instantiate(def, {}, def.sampleRateHz ?? 1000);
+  if (file.kind !== "python") instantiate(def, {}, def.sampleRateHz ?? 1000);
   return def;
 }
 
@@ -91,6 +107,8 @@ function describe(path: string, file: BlockFile): BlockDef {
       };
     case "formula":
       return { ...base, inputs: file.inputs, outputs: Object.keys(file.outputs), domain: "memoryless", linear: file.linear };
+    case "python":
+      return { ...base, inputs: file.inputs, outputs: file.outputs, domain: "python", linear: file.linear };
   }
 }
 
@@ -169,6 +187,8 @@ export function instantiate(def: BlockDef, overrides: Record<string, number>, sa
       return differenceRuntime(def, f.equations, f.inputs, p, dt);
     case "formula":
       return formulaRuntime(def, f.outputs, f.inputs, p);
+    case "python":
+      throw new BlockError(`${def.path}: Python Blocks run in the Python host`);
   }
 }
 

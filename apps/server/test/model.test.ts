@@ -287,5 +287,7 @@ linear: true
     expect(r.series.y!.at(-1)).toBeCloseTo(1 - Math.exp(-2), 6);
     await expect(c.request("files.write", { path: "../escape.yaml", content: "x" })).rejects.toMatchObject({ code: "invalid_params" });
     await expect(c.request("files.write", { path: "notes.txt", content: "x" })).rejects.toMatchObject({ code: "invalid_params" });
+    await c.request("files.write", { path: "python/x.py", content: "print(1)\n" });
+    expect(await c.request("files.list", {})).toContainEqual({ path: "python/x.py", kind: "python" });
   });
 });

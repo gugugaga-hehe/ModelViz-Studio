@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 import { SystemFile, type ValidationIssue } from "@modelviz/protocol";
 import { parse } from "yaml";
-import { type BlockDef, BlockError, type BlockRuntime, gainRuntime, instantiate, loadBlock, sumRuntime } from "./block.ts";
+import { type BlockDef, BlockError, type BlockRuntime, gainRuntime, instantiate, loadBlock, parameterValues, sumRuntime } from "./block.ts";
+import { PythonBlockRuntime, type PythonHost } from "./python-host.ts";
 
 /** A System file with its Blocks resolved and checked (not yet executing). */
 export interface LoadedSystem {
@@ -64,17 +65,46 @@ interface Node {
   feedthrough: boolean;
 }
 
-/** Port lists and feedthrough of each System Block (built-ins included), with default parameters. */
-function nodes(sys: LoadedSystem, overrides: Record<string, Record<string, number>> = {}): Map<string, Node & { rt: BlockRuntime }> {
+export interface EngineOptions {
+  /** Hosts Python Blocks; required when the System contains any. */
+  python?: PythonHost;
+}
+
+/** A Block runtime, or a Python Block (processed in chunks through the Python host). */
+type Runtime = { kind: "ts"; rt: BlockRuntime } | { kind: "py"; rt: PythonBlockRuntime };
+
+interface NodeRt extends Node {
+  run: Runtime;
+}
+
+/** Port lists, feedthrough and runtimes of each System Block (built-ins included). */
+function nodes(sys: LoadedSystem, overrides: Record<string, Record<string, number>> = {}, opts: EngineOptions | null = null): Map<string, NodeRt> {
   const file = sys.file!;
-  const out = new Map<string, Node & { rt: BlockRuntime }>();
+  const out = new Map<string, NodeRt>();
   for (const [name, b] of Object.entries(file.blocks)) {
-    let rt: BlockRuntime;
+    let run: Runtime;
     if ("block" in b) {
-      rt = instantiate(sys.defs.get(name)!, { ...b.parameters, ...(overrides[name] ?? {}) }, file.sampleRateHz);
-    } else if (b.kind === "sum") rt = sumRuntime(b.signs);
-    else rt = gainRuntime(b.gain);
-    out.set(name, { name, inputs: rt.inputs, outputs: rt.outputs, feedthrough: rt.feedthrough, rt });
+      const def = sys.defs.get(name)!;
+      const params = { ...b.parameters, ...(overrides[name] ?? {}) };
+      if (def.file.kind === "python") {
+        // Validation only needs ports; execution needs the host.
+        if (!opts) {
+          out.set(name, { name, inputs: def.inputs, outputs: def.outputs, feedthrough: true, run: null as never });
+          continue;
+        }
+        if (!opts.python) throw new BlockError(`${name}: Python Blocks need the Project's Python environment, which is not ready`);
+        parameterValues(def, params);
+        const values = parameterValues(def, params);
+        run = {
+          kind: "py",
+          rt: new PythonBlockRuntime(opts.python, def.path, def.modulePath!, def.file.class, values, file.sampleRateHz, def.inputs, def.outputs),
+        };
+      } else {
+        run = { kind: "ts", rt: instantiate(def, params, file.sampleRateHz) };
+      }
+    } else if (b.kind === "sum") run = { kind: "ts", rt: sumRuntime(b.signs) };
+    else run = { kind: "ts", rt: gainRuntime(b.gain) };
+    out.set(name, { name, inputs: run.rt.inputs, outputs: run.rt.outputs, feedthrough: run.rt.feedthrough, run });
   }
   return out;
 }
@@ -90,7 +120,7 @@ function validate(sys: LoadedSystem): ValidationIssue[] {
       });
     }
   }
-  let ns: Map<string, Node & { rt: BlockRuntime }>;
+  let ns: Map<string, Node>;
   try {
     ns = nodes(sys);
   } catch (e) {
@@ -176,29 +206,75 @@ function findAlgebraicLoop(ns: Map<string, Node>, connections: { from: string; t
   return feedthroughOrder(ns, connections).cycle;
 }
 
-/** An executing System: steps all Blocks one sample at a time, in dependency order. */
+/**
+ * Strongly connected components of the Block graph (Tarjan), in dependency order: every
+ * component only reads from components before it.
+ */
+function components(names: string[], connections: { from: string; to: string }[]): { members: string[]; cyclic: boolean }[] {
+  const succ = new Map<string, Set<string>>(names.map((n) => [n, new Set()]));
+  for (const c of connections) {
+    if (!c.from.includes(".")) continue;
+    succ.get(c.from.split(".")[0]!)!.add(c.to.split(".")[0]!);
+  }
+  let index = 0;
+  const idx = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const on = new Set<string>();
+  const out: { members: string[]; cyclic: boolean }[] = [];
+  const strong = (v: string) => {
+    idx.set(v, index);
+    low.set(v, index++);
+    stack.push(v);
+    on.add(v);
+    for (const w of succ.get(v)!) {
+      if (!idx.has(w)) {
+        strong(w);
+        low.set(v, Math.min(low.get(v)!, low.get(w)!));
+      } else if (on.has(w)) low.set(v, Math.min(low.get(v)!, idx.get(w)!));
+    }
+    if (low.get(v) === idx.get(v)) {
+      const members: string[] = [];
+      let w: string;
+      do {
+        w = stack.pop()!;
+        on.delete(w);
+        members.push(w);
+      } while (w !== v);
+      out.push({ members, cyclic: members.length > 1 || succ.get(v)!.has(v) });
+    }
+  };
+  for (const n of names) if (!idx.has(n)) strong(n);
+  // Tarjan emits sinks first
+  return out.reverse();
+}
+
+/**
+ * An executing System. Each run processes a chunk of samples (ADR-0010) stage by stage:
+ * the Block graph is split into strongly connected components processed in dependency order.
+ * A component without a cycle processes the whole chunk at once (one call for a Python Block);
+ * a feedback loop is stepped sample by sample so it stays exact, calling Python Blocks inside
+ * it once per sample (ADR-0011).
+ */
 export class SystemEngine {
   readonly sampleRateHz: number;
   readonly inputs: string[];
   readonly outputs: string[];
-  private readonly ns: Map<string, Node & { rt: BlockRuntime }>;
-  private readonly order: string[];
-  private readonly nonFeedthrough: string[];
+  private readonly ns: Map<string, NodeRt>;
+  private readonly stages: { members: string[]; cyclic: boolean; order: string[] }[];
   /** For each Block, where each input Port reads from. */
   private readonly wiring: Map<string, string[]>;
   private readonly outputSources: string[];
-  private readonly values = new Map<string, number>();
   private k = 0;
 
-  constructor(sys: LoadedSystem, overrides: Record<string, Record<string, number>> = {}) {
+  constructor(sys: LoadedSystem, overrides: Record<string, Record<string, number>> = {}, opts: EngineOptions = {}) {
     if (sys.issues.length || !sys.file) throw new SystemError(sys.issues);
     const file = sys.file;
-    for (const [b, o] of Object.entries(overrides)) {
+    for (const b of Object.keys(overrides)) {
       if (!(b in file.blocks)) throw new SystemError([{ code: "unknown_block", message: `Parameter override for unknown Block ${b}` }]);
-      void o;
     }
     try {
-      this.ns = nodes(sys, overrides);
+      this.ns = nodes(sys, overrides, opts);
     } catch (e) {
       throw new SystemError([{ code: "invalid_block", message: (e as Error).message }]);
     }
@@ -206,44 +282,80 @@ export class SystemEngine {
     this.inputs = file.inputs;
     this.outputs = Object.keys(file.outputs);
     this.outputSources = Object.values(file.outputs);
-    this.order = feedthroughOrder(this.ns, file.connections).order;
-    this.nonFeedthrough = [...this.ns.values()].filter((n) => !n.feedthrough).map((n) => n.name);
+    const ftOrder = feedthroughOrder(this.ns, file.connections).order;
+    this.stages = components([...this.ns.keys()], file.connections).map((c) => {
+      const set = new Set(c.members);
+      // within a loop: Blocks without feedthrough first, then feedthrough Blocks in dependency order
+      const order = [...c.members.filter((m) => !this.ns.get(m)!.feedthrough), ...ftOrder.filter((m) => set.has(m))];
+      return { ...c, order };
+    });
     const drv = new Map(file.connections.map((c) => [c.to, c.from]));
     this.wiring = new Map([...this.ns.values()].map((n) => [n.name, n.inputs.map((p) => drv.get(`${n.name}.${p}`)!)]));
   }
 
-  reset(): void {
-    for (const n of this.ns.values()) n.rt.reset();
-    this.values.clear();
+  async reset(): Promise<void> {
+    for (const n of this.ns.values()) await n.run.rt.reset();
     this.k = 0;
   }
 
   /**
    * Runs `count` samples. `input(name, k, t)` supplies System input values; returns one array
-   * per System output. Blocks process the chunk sample by sample internally, so feedback
-   * loops are exact (ADR-0010 chunks are the unit of scheduling, not of numerical coupling).
+   * per System output.
    */
-  run(count: number, input: (name: string, k: number, t: number) => number): Float64Array[] {
-    const out = this.outputs.map(() => new Float64Array(count));
+  async run(count: number, input: (name: string, k: number, t: number) => number): Promise<Float64Array[]> {
     const dt = 1 / this.sampleRateHz;
-    const gather = (name: string) => this.wiring.get(name)!.map((ep) => this.values.get(ep) ?? 0);
-    for (let i = 0; i < count; i++, this.k++) {
-      const t = this.k * dt;
-      for (const name of this.inputs) this.values.set(name, input(name, this.k, t));
-      // Outputs of non-feedthrough Blocks do not depend on current inputs; pass zeros.
-      for (const name of this.nonFeedthrough) {
-        const rt = this.ns.get(name)!.rt;
-        this.emit(name, rt.output(rt.inputs.map(() => 0), t));
-      }
-      for (const name of this.order) this.emit(name, this.ns.get(name)!.rt.output(gather(name), t));
-      this.outputSources.forEach((ep, j) => (out[j]![i] = this.values.get(ep) ?? 0));
-      for (const n of this.ns.values()) n.rt.update(gather(n.name), t);
-    }
-    return out;
-  }
+    const k0 = this.k;
+    const t = Float64Array.from({ length: count }, (_, i) => (k0 + i) * dt);
+    const values = new Map<string, Float64Array>();
+    for (const name of this.inputs) values.set(name, Float64Array.from({ length: count }, (_, i) => input(name, k0 + i, t[i]!)));
+    for (const n of this.ns.values()) for (const p of n.outputs) values.set(`${n.name}.${p}`, new Float64Array(count));
+    const src = (ep: string) => values.get(ep)!;
 
-  private emit(name: string, y: number[]): void {
-    const n = this.ns.get(name)!;
-    n.outputs.forEach((p, i) => this.values.set(`${name}.${p}`, y[i]!));
+    for (const stage of this.stages) {
+      if (!stage.cyclic) {
+        const n = this.ns.get(stage.members[0]!)!;
+        const ins = this.wiring.get(n.name)!.map(src);
+        if (n.run.kind === "py") {
+          const outs = await n.run.rt.process(t, ins);
+          n.outputs.forEach((p, j) => values.get(`${n.name}.${p}`)!.set(outs[j]!));
+        } else {
+          const rt = n.run.rt;
+          const outs = n.outputs.map((p) => values.get(`${n.name}.${p}`)!);
+          for (let i = 0; i < count; i++) {
+            const u = ins.map((a) => a[i]!);
+            const y = rt.output(u, t[i]!);
+            for (let j = 0; j < y.length; j++) outs[j]![i] = y[j]!;
+            rt.update(u, t[i]!);
+          }
+        }
+        continue;
+      }
+      // feedback loop: step every member sample by sample
+      const members = stage.order.map((m) => this.ns.get(m)!);
+      const wiring = members.map((n) => this.wiring.get(n.name)!.map(src));
+      const outs = members.map((n) => n.outputs.map((p) => values.get(`${n.name}.${p}`)!));
+      for (let i = 0; i < count; i++) {
+        const us: number[][] = [];
+        for (let m = 0; m < members.length; m++) {
+          const n = members[m]!;
+          // non-feedthrough outputs do not depend on current inputs; pass zeros
+          const u = n.feedthrough ? wiring[m]!.map((a) => a[i]!) : n.inputs.map(() => 0);
+          let y: ArrayLike<number>;
+          if (n.run.kind === "py") {
+            const o = await n.run.rt.process(t.subarray(i, i + 1), u.map((v) => Float64Array.of(v)));
+            y = o.map((a) => a[0]!);
+          } else y = n.run.rt.output(u, t[i]!);
+          for (let j = 0; j < y.length; j++) outs[m]![j]![i] = y[j]!;
+          us.push(u);
+        }
+        for (let m = 0; m < members.length; m++) {
+          const n = members[m]!;
+          if (n.run.kind === "py") continue; // process() already advanced it
+          n.run.rt.update(wiring[m]!.map((a) => a[i]!), t[i]!);
+        }
+      }
+    }
+    this.k += count;
+    return this.outputSources.map((ep) => Float64Array.from(values.get(ep)!));
   }
 }

@@ -285,7 +285,7 @@ export class Workbench {
       };
       this.jobs.set(req.id, ctl);
       try {
-        return await runSweep(project.path, req, ctl);
+        return await runSweep(project.path, req, ctl, this.python?.python ?? null);
       } finally {
         this.jobs.delete(req.id);
       }
@@ -299,7 +299,7 @@ export class Workbench {
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();
-      const result = await runTimeAnalysis(project.path, req);
+      const result = await runTimeAnalysis(project.path, req, this.python?.python ?? null);
       this.publishSystemOutputs(result.system, result.times, result.series);
       return result;
     },

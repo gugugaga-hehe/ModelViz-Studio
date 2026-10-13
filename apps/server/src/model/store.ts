@@ -9,8 +9,8 @@ import { loadSystem } from "./system.ts";
 export const BLOCKS_DIR = "blocks";
 export const SYSTEMS_DIR = "systems";
 
-type FileKind = "frame-format" | "dialect" | "block" | "system" | "other";
-const EDITABLE = /\.(ya?ml|xml)$/;
+type FileKind = "frame-format" | "dialect" | "block" | "system" | "python" | "other";
+const EDITABLE = /\.(ya?ml|xml|py)$/;
 
 /** Resolves a Project-relative path and refuses anything outside the Project. */
 export function projectFile(projectPath: string, rel: string): string {
@@ -22,6 +22,7 @@ export function projectFile(projectPath: string, rel: string): string {
 }
 
 function kindOf(rel: string): FileKind {
+  if (rel.endsWith(".py")) return "python";
   if (rel.startsWith(`${BLOCKS_DIR}/`)) return "block";
   if (rel.startsWith(`${SYSTEMS_DIR}/`)) return "system";
   if (rel.endsWith(".xml")) return "dialect";
@@ -31,7 +32,7 @@ function kindOf(rel: string): FileKind {
 
 async function walk(root: string, dir: string, out: string[]): Promise<void> {
   for (const e of await readdir(join(root, dir), { withFileTypes: true }).catch(() => [])) {
-    if (e.name.startsWith(".") || e.name === "recordings" || e.name === "imports" || e.name === "node_modules") continue;
+    if (e.name.startsWith(".") || ["recordings", "imports", "node_modules", "__pycache__"].includes(e.name)) continue;
     const rel = dir ? `${dir}/${e.name}` : e.name;
     if (e.isDirectory()) await walk(root, rel, out);
     else if (EDITABLE.test(e.name)) out.push(rel);
@@ -55,7 +56,7 @@ export async function readProjectFile(projectPath: string, rel: string): Promise
 
 export async function writeProjectFile(projectPath: string, rel: string, content: string): Promise<void> {
   const abs = projectFile(projectPath, rel);
-  if (!EDITABLE.test(abs)) throw new ProtocolFailure("invalid_params", "Only .yaml, .yml and .xml files can be edited");
+  if (!EDITABLE.test(abs)) throw new ProtocolFailure("invalid_params", "Only .yaml, .yml, .xml and .py files can be edited");
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, content);
 }
@@ -75,6 +76,7 @@ export async function listBlocks(projectPath: string): Promise<BlockInfo[]> {
         kind: d.file.kind,
         ...(d.domain !== "memoryless" ? { domain: d.domain } : {}),
         linear: d.linear,
+        ...(d.file.kind === "python" ? { module: d.file.module } : {}),
         inputs: d.inputs,
         outputs: d.outputs,
         parameters: d.parameters,
