@@ -85,6 +85,10 @@ client.on("signals.reset", ({ device }) => {
 client.connect();
 
 /** Reloads Blocks and Systems after model files change. */
+/** Progress of long-running Analyses by id. */
+export const useProgress = create<Record<string, { done: number; total: number }>>(() => ({}));
+client.on("analysis.progress", (p) => useProgress.setState({ [p.id]: { done: p.done, total: p.total } }));
+
 export async function refreshModels(): Promise<void> {
   const [blocks, systems] = await Promise.all([client.request("blocks.list", {}), client.request("systems.list", {})]);
   useSession.setState({ blocks, systems });

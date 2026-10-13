@@ -196,5 +196,46 @@
     "poles": "Poles",
     "zeros": "Zeros",
     "zerosOf": "Zeros of output"
+  },
+  "sweep": {
+    "title": "Parameter Sweep",
+    "block": "Block",
+    "parameter": "Block Parameter",
+    "from": "from",
+    "to": "to",
+    "steps": "steps",
+    "scale": "scale",
+    "linear": "linear",
+    "log": "log",
+    "metric": "Metric",
+    "output": "Output",
+    "axis1": "Axis 1",
+    "axis2": "Axis 2",
+    "addAxis": "Add second axis (heatmap)",
+    "removeAxis": "Remove second axis",
+    "run": "Run sweep",
+    "cancel": "Cancel",
+    "progress": "Sweep progress",
+    "noParameters": "This System has no Block Parameters to sweep",
+    "group": {
+      "step": "Step response",
+      "frequency": "Frequency Response",
+      "loop": "Loop"
+    },
+    "m": {
+      "overshootPercent": "Overshoot [%]",
+      "riseTimeS": "Rise time [s]",
+      "settlingTimeS": "Settling time [s]",
+      "peakTimeS": "Peak time [s]",
+      "finalValue": "Final value",
+      "bandwidthHz": "Bandwidth [Hz]",
+      "dcGainDb": "DC gain [dB]",
+      "peakGainDb": "Peak gain [dB]",
+      "peakHz": "Peak frequency [Hz]",
+      "phaseMarginDeg": "Phase margin [°]",
+      "gainMarginDb": "Gain margin [dB]",
+      "gainCrossoverHz": "Gain crossover [Hz]",
+      "phaseCrossoverHz": "Phase crossover [Hz]"
+    }
   }
 }

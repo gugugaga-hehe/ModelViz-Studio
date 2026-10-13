@@ -196,5 +196,46 @@
     "poles": "極點",
     "zeros": "零點",
     "zerosOf": "零點所屬輸出"
+  },
+  "sweep": {
+    "title": "Parameter Sweep",
+    "block": "Block",
+    "parameter": "Block Parameter",
+    "from": "起",
+    "to": "迄",
+    "steps": "點數",
+    "scale": "刻度",
+    "linear": "線性",
+    "log": "對數",
+    "metric": "Metric",
+    "output": "輸出",
+    "axis1": "軸 1",
+    "axis2": "軸 2",
+    "addAxis": "加入第二軸（heatmap）",
+    "removeAxis": "移除第二軸",
+    "run": "執行掃描",
+    "cancel": "取消",
+    "progress": "掃描進度",
+    "noParameters": "此 System 沒有可掃描的 Block Parameter",
+    "group": {
+      "step": "步階響應",
+      "frequency": "Frequency Response",
+      "loop": "迴路"
+    },
+    "m": {
+      "overshootPercent": "超越量 [%]",
+      "riseTimeS": "上升時間 [s]",
+      "settlingTimeS": "安定時間 [s]",
+      "peakTimeS": "峰值時間 [s]",
+      "finalValue": "終值",
+      "bandwidthHz": "頻寬 [Hz]",
+      "dcGainDb": "DC 增益 [dB]",
+      "peakGainDb": "峰值增益 [dB]",
+      "peakHz": "峰值頻率 [Hz]",
+      "phaseMarginDeg": "相位裕度 [°]",
+      "gainMarginDb": "增益裕度 [dB]",
+      "gainCrossoverHz": "增益交越頻率 [Hz]",
+      "phaseCrossoverHz": "相位交越頻率 [Hz]"
+    }
   }
 }
