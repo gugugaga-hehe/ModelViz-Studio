@@ -23,7 +23,19 @@ export const FieldGenerator = z.discriminatedUnion("kind", [
 ]);
 export type FieldGenerator = z.infer<typeof FieldGenerator>;
 
+/** Deliberate imperfections a Virtual Device can introduce, for testing link handling. */
+export const VirtualFaults = z.object({
+  /** Skip every Nth frame (the sequence number still advances, like a lost frame). */
+  dropEvery: z.number().int().min(2).optional(),
+  /** Corrupt one byte of every Nth frame so its CRC fails. */
+  corruptEvery: z.number().int().min(2).optional(),
+  /** Delay delivery of byte chunks by a random 0..jitterMs, preserving order. */
+  jitterMs: z.number().nonnegative().optional(),
+});
+export type VirtualFaults = z.infer<typeof VirtualFaults>;
+
 export const VirtualDeviceConfig = z.object({
+  faults: VirtualFaults.default({}),
   /** Messages to emit, by Message name. Unlisted Messages are not emitted. */
   messages: z.record(
     z.string(),
@@ -52,12 +64,41 @@ export const ProjectManifest = z.object({
 });
 export type ProjectManifest = z.infer<typeof ProjectManifest>;
 
+export const TimeUnit = z.enum(["us", "ms", "s"]);
+export type TimeUnit = z.infer<typeof TimeUnit>;
+
+/** Per-Message declarations layered on top of the Framing's own definitions. */
+export const MessageOptions = z.object({
+  /** Field carrying the Device Timestamp; when present it is the authoritative time for this Message's Signals. */
+  deviceTimestamp: z.object({ field: z.string(), unit: TimeUnit }).optional(),
+  /** Frames per second the Device should produce; used to detect dropped frames and timing jumps. */
+  nominalRateHz: z.number().positive().optional(),
+  /**
+   * Array Fields that each carry several consecutive samples per frame. Element 0 is at the
+   * Device Timestamp; element i is i sample intervals later.
+   */
+  batch: z
+    .object({
+      fields: z.array(z.string()).min(1),
+      /** Fixed sample rate within a frame … */
+      sampleRateHz: z.number().positive().optional(),
+      /** … or a Field holding the interval between samples. */
+      intervalField: z.object({ field: z.string(), unit: TimeUnit }).optional(),
+    })
+    .refine((b) => (b.sampleRateHz === undefined) !== (b.intervalField === undefined), {
+      message: "batch needs exactly one of sampleRateHz or intervalField",
+    })
+    .optional(),
+});
+export type MessageOptions = z.infer<typeof MessageOptions>;
+
 /** Frame Format file: a Framing plus the Messages it carries (ADR-0002). */
 export const FrameFormatFile = z.discriminatedUnion("framing", [
   z.object({
     framing: z.literal("mavlink2"),
     /** MAVLink dialect XML, relative to the Frame Format file. */
     dialect: z.string().min(1),
+    messages: z.record(z.string(), MessageOptions).default({}),
   }),
 ]);
 export type FrameFormatFile = z.infer<typeof FrameFormatFile>;

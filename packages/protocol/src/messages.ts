@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ProjectInfo, ProjectTemplate } from "./project.ts";
-import { DeviceInfo, SignalInfo, SourceState } from "./signals.ts";
+import { DeviceInfo, LinkHealth, SignalInfo, SourceState } from "./signals.ts";
 
 /**
  * Version of the client protocol. Client and server must agree exactly;
@@ -67,6 +67,11 @@ export const Methods = {
     params: z.object({ ids: z.array(z.string()) }),
     result: z.object({}),
   },
+  /** Latest link health for a Device (also pushed as `link.health` events while a Source runs). */
+  "link.health": {
+    params: z.object({ device: z.string() }),
+    result: LinkHealth,
+  },
   "sources.list": {
     params: z.object({}),
     result: z.array(SourceState),
@@ -90,6 +95,7 @@ export type MethodResult<M extends MethodName> = z.infer<(typeof Methods)[M]["re
 export const Events = {
   "project.changed": ProjectInfo.nullable(),
   "source.changed": SourceState,
+  "link.health": LinkHealth,
 } as const;
 
 export type EventName = keyof typeof Events;

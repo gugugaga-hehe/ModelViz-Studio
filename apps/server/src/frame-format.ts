@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { type FieldGenerator, FrameFormatFile } from "@modelviz/protocol";
+import { type FieldGenerator, FrameFormatFile, type MessageOptions, type TimeUnit } from "@modelviz/protocol";
 import { parse } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
 import { type FieldValue, decodePayload, encodeFrame } from "./mavlink/codec.ts";
@@ -24,7 +24,19 @@ export interface FieldSpec {
 export interface MessageSpec {
   name: string;
   fields: FieldSpec[];
+  /** Field holding the Device Timestamp and its scale to milliseconds. */
+  deviceTimestamp?: { field: string; toMs: number };
+  nominalRateHz?: number;
+  /** Array Fields carrying consecutive samples; Signals for them are per-sample, not per-element. */
+  batch?: {
+    fields: string[];
+    length: number;
+    intervalMs?: number;
+    intervalField?: { field: string; toMs: number };
+  };
 }
+
+const TO_MS: Record<TimeUnit, number> = { us: 1e-3, ms: 1, s: 1e3 };
 
 export interface DecodedMessage {
   message: string;
@@ -59,9 +71,43 @@ export async function loadFrameFormat(projectPath: string, relPath: string): Pro
     throw new ProtocolFailure("invalid_project", `Invalid Frame Format ${relPath}: ${parsed.error.message}`);
   }
   const file = parsed.data;
+  let format: FrameFormat;
   switch (file.framing) {
     case "mavlink2":
-      return loadMavlink2(resolve(dirname(path), file.dialect));
+      format = await loadMavlink2(resolve(dirname(path), file.dialect));
+  }
+  for (const [name, opts] of Object.entries(file.messages)) {
+    const spec = format.messages.find((m) => m.name === name);
+    if (!spec) throw new ProtocolFailure("invalid_project", `Frame Format ${relPath}: unknown Message ${name}`);
+    applyOptions(spec, opts, relPath);
+  }
+  return format;
+}
+
+function applyOptions(spec: MessageSpec, opts: MessageOptions, relPath: string): void {
+  const fail = (msg: string) => {
+    throw new ProtocolFailure("invalid_project", `Frame Format ${relPath}, Message ${spec.name}: ${msg}`);
+  };
+  const field = (name: string) => spec.fields.find((f) => f.name === name) ?? fail(`unknown Field ${name}`);
+  if (opts.deviceTimestamp) {
+    const f = field(opts.deviceTimestamp.field);
+    if (!f.numeric || f.arrayLength) fail(`Device Timestamp Field ${f.name} must be a numeric scalar`);
+    spec.deviceTimestamp = { field: f.name, toMs: TO_MS[opts.deviceTimestamp.unit] };
+  }
+  if (opts.nominalRateHz) spec.nominalRateHz = opts.nominalRateHz;
+  if (opts.batch) {
+    if (!spec.deviceTimestamp) fail("batched Messages need a Device Timestamp");
+    const lengths = new Set(opts.batch.fields.map((n) => field(n).arrayLength));
+    const [length] = [...lengths];
+    if (lengths.size !== 1 || !length) fail("batch Fields must be numeric arrays of equal length");
+    spec.batch = {
+      fields: opts.batch.fields,
+      length: length!,
+      ...(opts.batch.sampleRateHz ? { intervalMs: 1000 / opts.batch.sampleRateHz } : {}),
+      ...(opts.batch.intervalField
+        ? { intervalField: { field: field(opts.batch.intervalField.field).name, toMs: TO_MS[opts.batch.intervalField.unit] } }
+        : {}),
+    };
   }
 }
 

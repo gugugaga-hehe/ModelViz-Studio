@@ -41,5 +41,16 @@
     "heading": "Signal",
     "noSignals": "沒有 Signal — 請在 Project 中加入 Device",
     "pickSignals": "選擇要繪製的 Signal"
+  },
+  "health": {
+    "frames": "Frame 數",
+    "crcErrors": "CRC 錯誤",
+    "sequenceGaps": "遺失（序號）",
+    "unknownMessages": "未知 Message",
+    "message": "Message",
+    "missed": "缺漏",
+    "missedTitle": "依 Device Timestamp 推算缺漏的 frame",
+    "nominal": "Nominal Rate",
+    "timingJumps": "時間跳動"
   }
 }

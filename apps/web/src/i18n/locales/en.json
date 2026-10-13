@@ -41,5 +41,16 @@
     "heading": "Signals",
     "noSignals": "No Signals — add a Device to the Project",
     "pickSignals": "Select Signals to plot"
+  },
+  "health": {
+    "frames": "Frames",
+    "crcErrors": "CRC errors",
+    "sequenceGaps": "Lost (sequence)",
+    "unknownMessages": "Unknown Messages",
+    "message": "Message",
+    "missed": "Missed",
+    "missedTitle": "Frames missing according to Device Timestamps",
+    "nominal": "Nominal Rate",
+    "timingJumps": "Timing jumps"
   }
 }

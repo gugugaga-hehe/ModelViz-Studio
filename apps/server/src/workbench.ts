@@ -12,6 +12,7 @@ import {
   signalId,
 } from "@modelviz/protocol";
 import { WebSocket } from "ws";
+import { DeviceLink, type SignalTarget } from "./device-link.ts";
 import { ProtocolFailure } from "./errors.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
@@ -22,9 +23,11 @@ interface DeviceRuntime {
   config: DeviceConfig;
   format: FrameFormat | null;
   error?: string;
-  /** Signal handles for each Message's Field values, in decode order. */
-  signalMap: Map<string, { field: string; index: number; handle: number }[]>;
+  /** Signal targets for each Message's Field values. */
+  signalMap: Map<string, SignalTarget[]>;
   source: { kind: "virtual"; stop(): void } | null;
+  /** Link of the current (or most recent) Source. */
+  link: DeviceLink | null;
 }
 
 export interface RequestContext {
@@ -39,6 +42,7 @@ export class Workbench {
   readonly clients = new Set<WebSocket>();
   readonly bus = new SignalBus();
   private devices = new Map<string, DeviceRuntime>();
+  private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
 
   broadcast<E extends EventName>(event: E, data: EventData<E>): void {
     const text = JSON.stringify({ type: "event", event, data } satisfies ServerMessage);
@@ -51,6 +55,7 @@ export class Workbench {
   }
 
   close(): void {
+    clearInterval(this.healthTimer);
     for (const d of this.devices.values()) d.source?.stop();
     this.bus.close();
   }
@@ -94,6 +99,12 @@ export class Workbench {
       this.bus.unsubscribe(ws, ids);
       return {};
     },
+    "link.health": async (p) => {
+      const { device } = Methods["link.health"].params.parse(p);
+      const d = this.device(device);
+      if (!d.link) throw new ProtocolFailure("not_found", `Device ${device} has not had a Source yet`);
+      return d.link.health();
+    },
     "sources.list": async () => {
       this.requireProject();
       return [...this.devices.values()].filter((d) => d.source).map((d) => this.sourceState(d));
@@ -104,14 +115,15 @@ export class Workbench {
       if (d.source) throw new ProtocolFailure("conflict", `Device ${device} already has a running Source`);
       if (!d.format) throw new ProtocolFailure("invalid_project", d.error ?? `Device ${device} has no Frame Format`);
       if (!d.config.virtual) throw new ProtocolFailure("invalid_project", `Device ${device} has no virtual configuration`);
-      const ingest = this.ingestor(d, d.format);
+      const link = new DeviceLink(d.config.id, d.format, d.signalMap, (h, t, v, host) => this.bus.publish(h, t, v, host));
       let vd: VirtualDevice;
       try {
-        vd = new VirtualDevice(d.format, d.config.virtual, ingest);
+        vd = new VirtualDevice(d.format, d.config.virtual, (bytes) => link.ingest(bytes));
       } catch (e) {
         throw new ProtocolFailure("invalid_project", (e as Error).message);
       }
       vd.start();
+      d.link = link;
       d.source = { kind: "virtual", stop: () => vd.stop() };
       const state = this.sourceState(d);
       this.broadcast("source.changed", state);
@@ -145,21 +157,8 @@ export class Workbench {
     return d;
   }
 
-  /** Bytes from any Source go through the Device's decoder into the Signal bus. */
-  private ingestor(d: DeviceRuntime, format: FrameFormat): (bytes: Uint8Array) => void {
-    const decoder = format.createDecoder();
-    return (bytes) => {
-      const hostTime = Date.now();
-      for (const msg of decoder.push(bytes)) {
-        const targets = d.signalMap.get(msg.message);
-        if (!targets) continue;
-        for (const t of targets) {
-          const v = msg.values[t.field];
-          const n = Array.isArray(v) ? v[t.index] : v;
-          if (typeof n === "number") this.bus.publish(t.handle, hostTime, n);
-        }
-      }
-    };
+  private reportHealth(): void {
+    for (const d of this.devices.values()) if (d.source && d.link) this.broadcast("link.health", d.link.health());
   }
 
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {
@@ -167,26 +166,30 @@ export class Workbench {
     this.devices = new Map();
     const signals: SignalInfo[] = [];
     for (const config of opened.manifest.devices) {
-      const rt: DeviceRuntime = { config, format: null, signalMap: new Map(), source: null };
+      const rt: DeviceRuntime = { config, format: null, signalMap: new Map(), source: null, link: null };
       try {
         rt.format = await loadFrameFormat(opened.info.path, config.frameFormat);
       } catch (e) {
         rt.error = (e as Error).message;
       }
       for (const m of rt.format?.messages ?? []) {
-        const targets: { field: string; index: number; handle: number }[] = [];
+        const targets: SignalTarget[] = [];
+        const timebase = m.deviceTimestamp ? "device" : "host";
         for (const f of m.fields.filter((f) => f.numeric)) {
-          const names = f.arrayLength ? Array.from({ length: f.arrayLength }, (_, i) => `${f.name}[${i}]`) : [f.name];
+          const batched = m.batch?.fields.includes(f.name) ?? false;
+          const names =
+            f.arrayLength && !batched ? Array.from({ length: f.arrayLength }, (_, i) => `${f.name}[${i}]`) : [f.name];
           names.forEach((fieldName, index) => {
             const id = signalId(config.id, m.name, fieldName);
             const handle = this.bus.handleOf(id);
-            targets.push({ field: f.name, index, handle });
+            targets.push({ field: f.name, index, handle, batched });
             signals.push({
               id,
               device: config.id,
               message: m.name,
               field: fieldName,
               handle,
+              timebase,
               ...(f.units ? { units: f.units } : {}),
             });
           });

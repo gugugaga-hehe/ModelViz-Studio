@@ -59,13 +59,20 @@ export function waitForState(client: ModelVizClient, state: ModelVizClient["stat
 }
 
 /** Collects samples of the given Signal handles until `until` returns true or the timeout hits. */
+export interface Collected {
+  times: number[];
+  values: number[];
+  /** Host Timestamps, present only for device-timebase Signals. */
+  hostTimes: number[];
+}
+
 export function collectSamples(
   client: ModelVizClient,
   handles: number[],
-  until: (samples: Map<number, { times: number[]; values: number[] }>) => boolean,
+  until: (samples: Map<number, Collected>) => boolean,
   timeoutMs = 5000,
-): Promise<Map<number, { times: number[]; values: number[] }>> {
-  const samples = new Map(handles.map((h) => [h, { times: [] as number[], values: [] as number[] }]));
+): Promise<Map<number, Collected>> {
+  const samples = new Map<number, Collected>(handles.map((h) => [h, { times: [], values: [], hostTimes: [] }]));
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       off();
@@ -76,6 +83,7 @@ export function collectSamples(
       if (!s) return;
       s.times.push(...chunk.times);
       s.values.push(...chunk.values);
+      if (chunk.hostTimes) s.hostTimes.push(...chunk.hostTimes);
       if (until(samples)) {
         clearTimeout(timer);
         off();
@@ -95,4 +103,13 @@ export async function benchProject(h: Awaited<ReturnType<typeof harness>>, clien
     return s;
   };
   return { path, signals, byId };
+}
+
+/** Edits a YAML file in a Project in place. */
+export async function editYaml(path: string, edit: (doc: any) => void): Promise<void> {
+  const { readFile, writeFile } = await import("node:fs/promises");
+  const { parse, stringify } = await import("yaml");
+  const doc = parse(await readFile(path, "utf8"));
+  edit(doc);
+  await writeFile(path, stringify(doc));
 }
