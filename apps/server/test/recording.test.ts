@@ -110,8 +110,9 @@ describe("Log Replay", () => {
     const { byId } = await benchProject(h, c);
     const sp = byId("bench/HEARTBEAT.type");
     const gx = byId("bench/BENCH_STATE.setpoint");
-    await c.request("signals.subscribe", { ids: [gx.id, sp.id] });
     const info = await recordBench(c, 800);
+    // subscribe only now, so no live sample from the recording run can arrive late
+    await c.request("signals.subscribe", { ids: [gx.id, sp.id] });
 
     const replayed = collectSamples(c, [gx.handle], (m) => m.get(gx.handle)!.values.length >= 300, 5000);
     const ended = waitForSource(c, (s) => s.replay?.playing === false && s.replay.positionMs === s.replay.durationMs, 8000);
