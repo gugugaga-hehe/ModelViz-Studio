@@ -1,6 +1,11 @@
 {
   "app": {
-    "title": "ModelViz Studio"
+    "title": "ModelViz Studio",
+    "views": "檢視",
+    "view": {
+      "telemetry": "遙測",
+      "model": "Model Lab"
+    }
   },
   "connection": {
     "connecting": "正在連線到伺服器…",
@@ -103,5 +108,40 @@
     "firstColumn": "第一欄",
     "timeUnit": "單位",
     "submit": "匯入"
+  },
+  "model": {
+    "blocks": "Block",
+    "systems": "System",
+    "noBlocks": "blocks/ 中沒有 Block",
+    "noSystems": "systems/ 中沒有 System",
+    "pick": "選擇要編輯的 Block 或 System",
+    "editor": "{{path}} 編輯器",
+    "content": "檔案內容",
+    "save": "儲存",
+    "unsaved": "未儲存",
+    "issues": "問題"
+  },
+  "loop": {
+    "new": "Loop Template",
+    "title": "由 Loop Template 建立 System",
+    "diagram": "r → 誤差 → 控制器 → Plant → 感測濾波器 → 回授",
+    "name": "System 名稱",
+    "rate": "取樣率 [Hz]",
+    "controller": "控制器",
+    "plant": "Plant",
+    "sensor": "感測濾波器",
+    "none": "（無）",
+    "create": "建立 System"
+  },
+  "analysis": {
+    "title": "Analysis",
+    "system": "System",
+    "kind": "Analysis",
+    "step": "步階響應",
+    "impulse": "脈衝響應",
+    "stimulus": "Stimulus 響應",
+    "amplitude": "振幅",
+    "duration": "時長 [s]",
+    "run": "執行"
   }
 }

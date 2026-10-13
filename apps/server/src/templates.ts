@@ -50,6 +50,54 @@ const VIRTUAL_BENCH_DEVICES = `devices:
 `;
 
 const VIRTUAL_BENCH_FILES: Record<string, string> = {
+  "blocks/plant.yaml": `# Rate Plant: motor + airframe as a second-order system.
+kind: transfer-function
+domain: continuous
+parameters:
+  K: { default: 1, description: DC gain }
+  wn: { default: 60, units: rad/s, description: Natural frequency }
+  zeta: { default: 0.7, description: Damping ratio }
+numerator: ["K*wn^2"]
+denominator: [1, "2*zeta*wn", "wn^2"]
+`,
+  "blocks/pi.yaml": `# PI rate controller: Kp + Ki/s
+kind: transfer-function
+domain: continuous
+parameters:
+  Kp: { default: 0.8, min: 0, max: 5 }
+  Ki: { default: 40, min: 0, max: 200 }
+numerator: [Kp, Ki]
+denominator: [1, 0]
+`,
+  "blocks/gyro-lpf.yaml": `# Gyro low-pass filter (first order)
+kind: transfer-function
+domain: continuous
+parameters:
+  fc: { default: 80, units: Hz, description: Cutoff frequency }
+numerator: [1]
+denominator: ["1/(2*pi*fc)", 1]
+`,
+  "systems/rate_loop.yaml": `# r → error = r − feedback → controller → plant → sensor → feedback
+description: Rate loop created from the Loop Template
+sampleRateHz: 1000
+inputs: [r]
+blocks:
+  error: { kind: sum, signs: "+-" }
+  controller: { block: blocks/pi.yaml }
+  plant: { block: blocks/plant.yaml }
+  sensor: { block: blocks/gyro-lpf.yaml }
+connections:
+  - { from: r, to: error.in1 }
+  - { from: sensor.y, to: error.in2 }
+  - { from: error.out, to: controller.u }
+  - { from: controller.y, to: plant.u }
+  - { from: plant.y, to: sensor.u }
+outputs:
+  y: plant.y
+  u: controller.y
+  e: error.out
+  ym: sensor.y
+`,
   "frame-formats/bench.yaml": `# Frame Format: how to talk to the bench Device.
 framing: mavlink2
 dialect: ../dialects/bench.xml

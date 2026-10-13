@@ -1,5 +1,5 @@
 import { type ConnectionState, ModelVizClient } from "@modelviz/client";
-import { type DeviceInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
+import { type BlockInfo, type DeviceInfo, type SystemInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
 import { create } from "zustand";
 import { SignalStore } from "./signal-store";
 
@@ -21,6 +21,8 @@ interface SessionState {
   sources: Record<string, SourceState>;
   health: Record<string, LinkHealth>;
   recordings: RecordingInfo[];
+  blocks: BlockInfo[];
+  systems: SystemInfo[];
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -32,19 +34,23 @@ export const useSession = create<SessionState>(() => ({
   sources: {},
   health: {},
   recordings: [],
+  blocks: [],
+  systems: [],
 }));
 
 async function loadProjectState(project: ProjectInfo | null): Promise<void> {
   signalStore.clear();
   if (!project) {
-    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [] });
+    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [], blocks: [], systems: [] });
     return;
   }
-  const [devices, signals, sources, recordings] = await Promise.all([
+  const [devices, signals, sources, recordings, blocks, systems] = await Promise.all([
     client.request("devices.list", {}),
     client.request("signals.list", {}),
     client.request("sources.list", {}),
     client.request("recordings.list", {}),
+    client.request("blocks.list", {}),
+    client.request("systems.list", {}),
   ]);
   useSession.setState({
     project,
@@ -53,6 +59,8 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     sources: Object.fromEntries(sources.map((s) => [s.device, s])),
     health: {},
     recordings,
+    blocks,
+    systems,
   });
 }
 
@@ -75,3 +83,9 @@ client.on("signals.reset", ({ device }) => {
   for (const s of useSession.getState().signals) if (s.device === device) signalStore.buffer(s.handle).clear();
 });
 client.connect();
+
+/** Reloads Blocks and Systems after model files change. */
+export async function refreshModels(): Promise<void> {
+  const [blocks, systems] = await Promise.all([client.request("blocks.list", {}), client.request("systems.list", {})]);
+  useSession.setState({ blocks, systems });
+}

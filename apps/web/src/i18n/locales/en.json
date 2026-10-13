@@ -1,6 +1,11 @@
 {
   "app": {
-    "title": "ModelViz Studio"
+    "title": "ModelViz Studio",
+    "views": "Views",
+    "view": {
+      "telemetry": "Telemetry",
+      "model": "Model Lab"
+    }
   },
   "connection": {
     "connecting": "Connecting to server…",
@@ -103,5 +108,40 @@
     "firstColumn": "first column",
     "timeUnit": "Unit",
     "submit": "Import"
+  },
+  "model": {
+    "blocks": "Blocks",
+    "systems": "Systems",
+    "noBlocks": "No Blocks in blocks/",
+    "noSystems": "No Systems in systems/",
+    "pick": "Select a Block or System to edit",
+    "editor": "Editor for {{path}}",
+    "content": "File content",
+    "save": "Save",
+    "unsaved": "unsaved",
+    "issues": "Issues"
+  },
+  "loop": {
+    "new": "Loop Template",
+    "title": "New System from the Loop Template",
+    "diagram": "r → error → controller → Plant → sensor → feedback",
+    "name": "System name",
+    "rate": "Rate [Hz]",
+    "controller": "Controller",
+    "plant": "Plant",
+    "sensor": "Sensor filter",
+    "none": "(none)",
+    "create": "Create System"
+  },
+  "analysis": {
+    "title": "Analysis",
+    "system": "System",
+    "kind": "Analysis",
+    "step": "Step response",
+    "impulse": "Impulse response",
+    "stimulus": "Stimulus response",
+    "amplitude": "Amplitude",
+    "duration": "Duration [s]",
+    "run": "Run"
   }
 }

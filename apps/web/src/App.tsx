@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConnectionBadge } from "./components/ConnectionBadge";
 import { DevicesPanel } from "./components/DevicesPanel";
 import { LanguageSelect } from "./components/LanguageSelect";
+import { ModelLab } from "./components/model/ModelLab";
 import { ProjectPanel } from "./components/ProjectPanel";
 import { RecordingsPanel } from "./components/RecordingsPanel";
 import { PlotStack } from "./components/PlotStack";
@@ -13,6 +14,7 @@ export function App() {
   const { t } = useTranslation();
   const project = useSession((s) => s.project);
   const [choosing, setChoosing] = useState(false);
+  const [view, setView] = useState<"telemetry" | "model">("telemetry");
   const showChooser = !project || choosing;
 
   return (
@@ -20,6 +22,21 @@ export function App() {
       <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-4 py-2">
         <div className="flex items-center gap-3">
           <h1 className="font-semibold">{t("app.title")}</h1>
+          {project && !showChooser && (
+            <nav className="ml-2 flex gap-1" role="tablist" aria-label={t("app.views")}>
+              {(["telemetry", "model"] as const).map((v) => (
+                <button
+                  key={v}
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className={`rounded px-2 py-1 text-sm ${view === v ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
+                >
+                  {t(`app.view.${v}`)}
+                </button>
+              ))}
+            </nav>
+          )}
           {project && (
             <button
               onClick={() => setChoosing((c) => !c)}
@@ -39,6 +56,10 @@ export function App() {
       {showChooser ? (
         <main className="flex flex-1 items-start justify-center overflow-auto p-6">
           <ProjectPanel onDone={() => setChoosing(false)} />
+        </main>
+      ) : view === "model" ? (
+        <main className="flex min-h-0 flex-1 p-3">
+          <ModelLab />
         </main>
       ) : (
         <main className="flex min-h-0 flex-1 gap-3 p-3">
