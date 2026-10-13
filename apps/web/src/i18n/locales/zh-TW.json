@@ -39,9 +39,14 @@
     "dialectHash": "Dialect hash"
   },
   "plot": {
-    "heading": "Signal",
     "noSignals": "沒有 Signal — 請在 Project 中加入 Device",
-    "pickSignals": "選擇要繪製的 Signal"
+    "pickSignals": "選擇要繪製的 Signal",
+    "title": "時序曲線 {{n}}",
+    "pause": "暫停",
+    "resume": "繼續",
+    "remove": "移除曲線",
+    "add": "新增時序曲線",
+    "pausedHint": "已暫停：拖曳框選縮放、滾輪縮放、Shift+拖曳平移、雙擊重設"
   },
   "health": {
     "frames": "Frame 數",

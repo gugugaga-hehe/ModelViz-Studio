@@ -39,9 +39,14 @@
     "dialectHash": "Dialect hash"
   },
   "plot": {
-    "heading": "Signals",
     "noSignals": "No Signals — add a Device to the Project",
-    "pickSignals": "Select Signals to plot"
+    "pickSignals": "Select Signals to plot",
+    "title": "Time plot {{n}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "remove": "Remove plot",
+    "add": "Add time plot",
+    "pausedHint": "Paused: drag to zoom, wheel to zoom, Shift+drag to pan, double-click to reset"
   },
   "health": {
     "frames": "Frames",
