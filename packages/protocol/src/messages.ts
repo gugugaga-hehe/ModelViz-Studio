@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ProjectInfo, ProjectTemplate, TransportConfig } from "./project.ts";
-import { DeviceInfo, LinkHealth, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
+import { DeviceInfo, LinkHealth, RecordingInfo, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
  * Version of the client protocol. Client and server must agree exactly;
@@ -89,6 +89,33 @@ export const Methods = {
     params: z.object({}),
     result: z.array(SerialPortInfo),
   },
+  /** Start capturing the raw byte stream of a Device's running Source. */
+  "recording.start": {
+    params: z.object({ device: z.string(), name: z.string().regex(/^[A-Za-z0-9_.-]+$/).optional() }),
+    result: RecordingInfo,
+  },
+  "recording.stop": {
+    params: z.object({ device: z.string() }),
+    result: RecordingInfo,
+  },
+  "recordings.list": {
+    params: z.object({}),
+    result: z.array(RecordingInfo),
+  },
+  /** Play a Recording back as a Log Replay Source, decoded with the current Frame Format. */
+  "source.startReplay": {
+    params: z.object({ device: z.string(), recording: z.string(), speed: z.number().positive().max(64).default(1) }),
+    result: SourceState,
+  },
+  "replay.control": {
+    params: z.object({
+      device: z.string(),
+      action: z.enum(["play", "pause", "seek", "speed"]),
+      positionMs: z.number().nonnegative().optional(),
+      speed: z.number().positive().max(64).optional(),
+    }),
+    result: SourceState,
+  },
   "source.stop": {
     params: z.object({ device: z.string() }),
     result: SourceState,
@@ -105,6 +132,9 @@ export const Events = {
   "project.changed": ProjectInfo.nullable(),
   "source.changed": SourceState,
   "link.health": LinkHealth,
+  "recording.changed": RecordingInfo,
+  /** A Device's Signals restart (e.g. a Log Replay seeked); clients should drop buffered samples. */
+  "signals.reset": z.object({ device: z.string() }),
 } as const;
 
 export type EventName = keyof typeof Events;

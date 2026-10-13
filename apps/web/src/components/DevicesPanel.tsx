@@ -1,10 +1,12 @@
 import type { SourceState } from "@modelviz/protocol";
-import { Cable, Cpu, Play, Square } from "lucide-react";
+import { Cable, Circle, Cpu, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
 import { ConnectForm } from "./ConnectForm";
+import { formatDuration } from "./format";
 import { LinkHealthView } from "./LinkHealthView";
+import { ReplayControls } from "./ReplayControls";
 
 const STATE_COLOR: Record<SourceState["state"], string> = {
   connecting: "text-warn",
@@ -20,6 +22,7 @@ export function DevicesPanel() {
   const devices = useSession((s) => s.devices);
   const sources = useSession((s) => s.sources);
   const health = useSession((s) => s.health);
+  const recordings = useSession((s) => s.recordings);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +46,8 @@ export function DevicesPanel() {
           const source = sources[d.id];
           const active = source && source.state !== "stopped" && source.state !== "rejected";
           const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent";
+          const recording = recordings.find((r) => r.device === d.id && r.active);
+          const canRecord = source?.state === "running" && source.kind !== "replay";
           return (
             <li key={d.id} className="rounded border border-border bg-bg p-2 text-sm" data-testid={`device-${d.id}`}>
               <div className="flex items-center gap-2">
@@ -69,14 +74,30 @@ export function DevicesPanel() {
                   {source.error}
                 </p>
               )}
+              {source?.kind === "replay" && active && <ReplayControls source={source} />}
               {health[d.id] && active && <LinkHealthView health={health[d.id]!} />}
               {!d.error && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {active ? (
-                    <button className={btn} onClick={() => run(() => client.request("source.stop", { device: d.id }))}>
-                      <Square size={12} />
-                      {t("devices.stop")}
-                    </button>
+                    <>
+                      <button className={btn} onClick={() => run(() => client.request("source.stop", { device: d.id }))}>
+                        <Square size={12} />
+                        {t("devices.stop")}
+                      </button>
+                      {recording ? (
+                        <button className={`${btn} text-danger`} onClick={() => run(() => client.request("recording.stop", { device: d.id }))}>
+                          <Square size={12} />
+                          {t("recordings.stop")} {formatDuration(recording.durationMs)}
+                        </button>
+                      ) : (
+                        canRecord && (
+                          <button className={btn} onClick={() => run(() => client.request("recording.start", { device: d.id }))}>
+                            <Circle size={12} className="fill-danger text-danger" />
+                            {t("recordings.record")}
+                          </button>
+                        )
+                      )}
+                    </>
                   ) : (
                     <>
                       <button className={btn} onClick={() => setConnecting(connecting === d.id ? null : d.id)}>
