@@ -1,0 +1,26 @@
+{
+  "name": "@modelviz/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelviz/protocol": "workspace:*",
+    "tsx": "4.23.15",
+    "ws": "8.22.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelviz/client": "workspace:*",
+    "@types/node": "22.20.5",
+    "@types/ws": "8.18.2",
+    "vitest": "5.0.4"
+  }
+}
