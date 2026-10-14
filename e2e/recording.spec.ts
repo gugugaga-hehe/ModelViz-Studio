@@ -26,7 +26,7 @@ test("records a Virtual Device and replays it into the plot", async ({ page }) =
     const rec = page.locator('[data-testid^="recording-bench-"]');
     await expect(rec).toHaveCount(1);
     await rec.getByRole("button", { name: /Replay/ }).click();
-    const controls = device.getByTestId("replay-controls");
+    const controls = page.getByTestId("replay-controls");
     await expect(controls).toBeVisible();
     await expect(device.getByTestId("source-state")).toHaveText("running");
 

@@ -30,7 +30,7 @@ export class ActiveSource {
   private error: string | undefined;
   private checkTimer: ReturnType<typeof setTimeout> | null = null;
   private stopTarget: (() => void) | null = null;
-  private player: ReplayPlayer | null = null;
+  private player: ReplayPlayer<{ time: number; bytes: Uint8Array }> | null = null;
   /** Raw-byte tap for an in-progress Recording. */
   recorder: Recorder | null = null;
   /** Dialect hash the Device reported in the last successful check. */
@@ -106,8 +106,8 @@ export class ActiveSource {
     let lastBroadcast = 0;
     const player = new ReplayPlayer(
       reader,
-      (bytes, hostTime) => {
-        src.link.ingest(bytes, hostTime);
+      ({ bytes, time }) => {
+        src.link!.ingest(bytes, time);
         // progress updates while playing, at a modest rate
         const now = performance.now();
         if (now - lastBroadcast > 250) {

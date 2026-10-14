@@ -93,5 +93,15 @@
     "pause": "Pause replay",
     "position": "Replay position",
     "speed": "Replay speed"
+  },
+  "csv": {
+    "import": "Import CSV",
+    "title": "Import CSV",
+    "path": "CSV file (absolute path)",
+    "name": "Name",
+    "timeColumn": "Time column",
+    "firstColumn": "first column",
+    "timeUnit": "Unit",
+    "submit": "Import"
   }
 }

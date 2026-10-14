@@ -15,6 +15,7 @@ import {
 import { WebSocket } from "ws";
 import { ActiveSource, type SourceOptions } from "./active-source.ts";
 import type { DeviceLink, SignalTarget } from "./device-link.ts";
+import { type CsvTable, CsvReplaySource, csvInfo, importCsv, loadImports } from "./csv-import.ts";
 import { ProtocolFailure } from "./errors.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
@@ -33,6 +34,13 @@ interface DeviceRuntime {
   link: DeviceLink | null;
 }
 
+/** An imported CSV: its columns are Signals and it can be played as a Log Replay. */
+interface CsvImport {
+  table: CsvTable;
+  handles: number[];
+  source: CsvReplaySource | null;
+}
+
 export interface RequestContext {
   ws: WebSocket;
 }
@@ -45,6 +53,7 @@ export class Workbench {
   readonly clients = new Set<WebSocket>();
   readonly bus = new SignalBus();
   private devices = new Map<string, DeviceRuntime>();
+  private imports = new Map<string, CsvImport>();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
 
   broadcast<E extends EventName>(event: E, data: EventData<E>): void {
@@ -60,6 +69,7 @@ export class Workbench {
   close(): void {
     clearInterval(this.healthTimer);
     for (const d of this.devices.values()) d.source?.stop();
+    for (const i of this.imports.values()) i.source?.stop();
     this.bus.close();
   }
 
@@ -112,7 +122,7 @@ export class Workbench {
     },
     "sources.list": async () => {
       this.requireProject();
-      return [...this.devices.values()].filter((d) => d.source?.active).map((d) => d.source!.state());
+      return [...this.devices.values(), ...this.imports.values()].filter((d) => d.source?.active).map((d) => d.source!.state());
     },
     "source.startVirtual": async (p) => {
       const { device } = Methods["source.startVirtual"].params.parse(p);
@@ -127,8 +137,35 @@ export class Workbench {
       return this.startSource(d, (opts) => ActiveSource.live(opts, transport));
     },
     "transports.listSerial": async () => listSerialPorts(),
+    "csv.import": async (p) => {
+      const { path, name, timeColumn, timeUnit } = Methods["csv.import"].params.parse(p);
+      const project = this.requireProject();
+      if (this.devices.has(name) || this.imports.has(name)) {
+        throw new ProtocolFailure("already_exists", `"${name}" is already used by a Device or import`);
+      }
+      const table = await importCsv(project.path, path, name, timeColumn, timeUnit);
+      this.addImport(table);
+      this.bus.setSignals([...this.bus.list(), ...this.importSignals(table)]);
+      // clients reload Signals and Recordings on this event
+      this.broadcast("project.changed", project);
+      return csvInfo(table);
+    },
     "source.startReplay": async (p) => {
       const { device, recording, speed } = Methods["source.startReplay"].params.parse(p);
+      const imp = this.imports.get(device);
+      if (imp) {
+        if (recording !== device) throw new ProtocolFailure("invalid_params", `Import ${device} replays only itself`);
+        if (imp.source?.active) throw new ProtocolFailure("conflict", `${device} is already playing`);
+        imp.source = new CsvReplaySource({
+          table: imp.table,
+          handles: imp.handles,
+          publish: (h, t, v) => this.bus.publish(h, t, v),
+          onState: (state) => this.broadcast("source.changed", state),
+          onReset: () => this.broadcast("signals.reset", { device }),
+          speed,
+        });
+        return imp.source.state();
+      }
       const d = this.idleDevice(device);
       const reader = await RecordingReader.open(this.requireProject().path, recording);
       if (reader.meta.device !== device) {
@@ -138,12 +175,12 @@ export class Workbench {
     },
     "replay.control": async (p) => {
       const { device, action, positionMs, speed } = Methods["replay.control"].params.parse(p);
-      const d = this.device(device);
-      if (!d.source?.active || d.source.kind !== "replay") {
+      const src = this.sourceOf(device);
+      if (!src?.active || src.kind !== "replay") {
         throw new ProtocolFailure("conflict", `Device ${device} is not playing a Log Replay`);
       }
-      d.source.control(action, positionMs, speed);
-      return d.source.state();
+      src.control(action, positionMs, speed);
+      return src.state();
     },
     "recording.start": async (p) => {
       const { device, name } = Methods["recording.start"].params.parse(p);
@@ -179,16 +216,39 @@ export class Workbench {
         [...this.devices.values()].flatMap((d) => (d.source?.recorder ? [[d.source.recorder.id, d.source.recorder.info()]] : [])),
       );
       const stored = (await listRecordings(project.path)).filter((r) => !active.has(r.id));
-      return [...stored, ...active.values()];
+      return [...stored, ...active.values(), ...[...this.imports.values()].map((i) => csvInfo(i.table))];
     },
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
-      const d = this.device(device);
-      if (!d.source) return { device, kind: "virtual", state: "stopped" } satisfies SourceState;
-      d.source.stop();
-      return d.source.state();
+      const src = this.sourceOf(device);
+      if (!src) return { device, kind: "virtual", state: "stopped" } satisfies SourceState;
+      src.stop();
+      return src.state();
     },
   };
+
+  /** Current Source of a Device or CSV import (throws if neither exists). */
+  private sourceOf(id: string): ActiveSource | CsvReplaySource | null {
+    this.requireProject();
+    const imp = this.imports.get(id);
+    if (imp) return imp.source;
+    return this.device(id).source;
+  }
+
+  private addImport(table: CsvTable): void {
+    this.imports.set(table.name, {
+      table,
+      handles: table.columns.map((c) => this.bus.handleOf(signalId(table.name, "CSV", c))),
+      source: null,
+    });
+  }
+
+  private importSignals(table: CsvTable): SignalInfo[] {
+    return table.columns.map((c) => {
+      const id = signalId(table.name, "CSV", c);
+      return { id, device: table.name, message: "CSV", field: c, handle: this.bus.handleOf(id), timebase: "device" as const };
+    });
+  }
 
   /** A Device that can take a new Source: loaded Frame Format, nothing running. */
   private idleDevice(id: string): DeviceRuntime & { format: FrameFormat } {
@@ -253,7 +313,9 @@ export class Workbench {
 
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {
     for (const d of this.devices.values()) d.source?.stop();
+    for (const i of this.imports.values()) i.source?.stop();
     this.devices = new Map();
+    this.imports = new Map();
     const signals: SignalInfo[] = [];
     for (const config of opened.manifest.devices) {
       const rt: DeviceRuntime = { config, format: null, signalMap: new Map(), source: null, link: null };
@@ -287,6 +349,12 @@ export class Workbench {
         rt.signalMap.set(m.name, targets);
       }
       this.devices.set(config.id, rt);
+    }
+    // Unreadable imports are skipped; a broken CSV must not prevent opening the Project.
+    for (const table of (await loadImports(opened.info.path)).tables) {
+      if (this.devices.has(table.name)) continue;
+      this.addImport(table);
+      signals.push(...this.importSignals(table));
     }
     this.bus.setSignals(signals);
     this.project = opened.info;

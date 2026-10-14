@@ -6,7 +6,6 @@ import { client, useSession } from "../state/session";
 import { ConnectForm } from "./ConnectForm";
 import { formatDuration } from "./format";
 import { LinkHealthView } from "./LinkHealthView";
-import { ReplayControls } from "./ReplayControls";
 
 const STATE_COLOR: Record<SourceState["state"], string> = {
   connecting: "text-warn",
@@ -74,7 +73,6 @@ export function DevicesPanel() {
                   {source.error}
                 </p>
               )}
-              {source?.kind === "replay" && active && <ReplayControls source={source} />}
               {health[d.id] && active && <LinkHealthView health={health[d.id]!} />}
               {!d.error && (
                 <div className="mt-2 flex flex-wrap gap-1">
