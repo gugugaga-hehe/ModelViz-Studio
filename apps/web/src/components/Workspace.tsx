@@ -7,21 +7,28 @@ import {
   type SerializedDockview,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { AudioLines, ChartLine, ChartScatter, Table } from "lucide-react";
+import { AudioLines, ChartLine, ChartScatter, Rotate3d, Table } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { client, useSession } from "../state/session";
+import { type AttitudeSettings, ATTITUDE_DEFAULTS, AttitudePanel } from "./panels/AttitudePanel";
 import { type SpectrumSettings, SpectrumPanel } from "./panels/SpectrumPanel";
 import { TablePanel } from "./panels/TablePanel";
 import { XyPlotPanel } from "./panels/XyPlotPanel";
 import { TimePlotPanel } from "./TimePlotPanel";
 
 /** Panel kinds the workspace can hold; the key is the dockview component id saved in the layout. */
-type Kind = "time" | "xy" | "table" | "fft";
-type PanelParams = { n: number; signals?: string[]; x?: string; y?: string } & Partial<SpectrumSettings>;
+type Kind = "time" | "xy" | "table" | "fft" | "attitude";
+type PanelParams = { n: number; signals?: string[]; x?: string; y?: string } & Partial<SpectrumSettings> & Partial<AttitudeSettings>;
 
-const TITLE_KEY: Record<Kind, string> = { time: "plot.title", xy: "panels.xyTitle", table: "panels.tableTitle", fft: "panels.fftTitle" };
+const TITLE_KEY: Record<Kind, string> = {
+  time: "plot.title",
+  xy: "panels.xyTitle",
+  table: "panels.tableTitle",
+  fft: "panels.fftTitle",
+  attitude: "panels.attitudeTitle",
+};
 
 const SPECTRUM_DEFAULTS: SpectrumSettings = { signal: "", window: "hann", length: 4096, scale: "amplitude", db: false };
 /** Wait this long after the last change before writing layout.yaml. */
@@ -57,7 +64,13 @@ const components: Record<Kind, React.FunctionComponent<IDockviewPanelProps<Panel
     const { n, signal, window, length, scale, db } = { ...SPECTRUM_DEFAULTS, ...props.params };
     return <SpectrumPanel n={n} settings={{ signal, window, length, scale, db }} onChange={set} />;
   },
+  attitude: (props) => {
+    const set = useParams(props);
+    const { n, mode, qw, qx, qy, qz, roll, pitch, yaw, unit } = { ...ATTITUDE_DEFAULTS, ...props.params };
+    return <AttitudePanel n={n} settings={{ mode, qw, qx, qy, qz, roll, pitch, yaw, unit }} onChange={set} />;
+  },
 };
+
 
 function Watermark(_: IWatermarkPanelProps) {
   const { t } = useTranslation();
@@ -77,7 +90,16 @@ function addPanel(api: DockviewApi, kind: Kind): void {
     id: `${kind}-${n}`,
     component: kind,
     title: title(kind, n),
-    params: { n, ...(kind === "xy" ? { x: "", y: "" } : kind === "fft" ? SPECTRUM_DEFAULTS : { signals: [] }) },
+    params: {
+      n,
+      ...(kind === "xy"
+        ? { x: "", y: "" }
+        : kind === "fft"
+          ? SPECTRUM_DEFAULTS
+          : kind === "attitude"
+            ? ATTITUDE_DEFAULTS
+            : { signals: [] }),
+    },
     ...(reference ? { position: { referencePanel: reference.id, direction: kind === "time" ? "below" : "right" } } : {}),
   });
 }
@@ -192,6 +214,10 @@ export function Workspace() {
           <AudioLines size={14} />
           {t("panels.addFft")}
         </button>
+        <button className={btn} onClick={() => api && addPanel(api, "attitude")}>
+          <Rotate3d size={14} />
+          {t("panels.addAttitude")}
+        </button>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
         <DockviewReact className="h-full" theme={theme} components={components} watermarkComponent={Watermark} onReady={(e) => setApi(e.api)} />
@@ -199,3 +225,4 @@ export function Workspace() {
     </div>
   );
 }
+

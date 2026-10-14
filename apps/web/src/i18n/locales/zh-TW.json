@@ -371,6 +371,24 @@
       "amplitudeDb": "幅值 [dB {{units}}]",
       "psd": "PSD [{{units}}²/Hz]",
       "psdDb": "PSD [dB {{units}}²/Hz]"
+    },
+    "addAttitude": "新增 Attitude 3D",
+    "attitudeTitle": "Attitude 3D {{n}}",
+    "attitude": {
+      "mode": "模式",
+      "quaternion": "Quaternion",
+      "euler": "Euler",
+      "qw": "w (qw)",
+      "qx": "x (qx)",
+      "qy": "y (qy)",
+      "qz": "z (qz)",
+      "roll": "Roll",
+      "pitch": "Pitch",
+      "yaw": "Yaw",
+      "unit": "角度單位",
+      "radians": "弧度 (rad)",
+      "degrees": "度 (deg)",
+      "pickSignals": "選擇四元數或歐拉角 Signal 以 3D 檢視姿態"
     }
   }
 }
