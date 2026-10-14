@@ -18,6 +18,7 @@ import {
   TimeAnalysisResult,
   ValidationIssue,
 } from "./model.ts";
+import { DeviceParameter, ParameterList, ParameterWriteResult } from "./parameters.ts";
 import { DeviceInfo, LinkHealth, RecordingInfo, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
@@ -40,6 +41,8 @@ export const ErrorCode = z.enum([
   "invalid_project",
   "invalid_system",
   "cancelled",
+  /** The Device did not answer in time. */
+  "timeout",
   "no_project",
   "internal",
 ]);
@@ -104,6 +107,24 @@ export const Methods = {
   "source.connect": {
     params: z.object({ device: z.string(), transport: TransportConfig }),
     result: SourceState,
+  },
+  /**
+   * Enumerate the Device Parameters of a Device whose Source is running (not a Log Replay).
+   * Indices the Device does not report are re-requested before giving up on them.
+   */
+  "parameters.list": {
+    params: z.object({ device: z.string() }),
+    result: ParameterList,
+  },
+  /** Read one Device Parameter from the Device. */
+  "parameters.read": {
+    params: z.object({ device: z.string(), name: z.string().min(1) }),
+    result: DeviceParameter,
+  },
+  /** Write one Device Parameter; resolves with the value the Device acknowledged. */
+  "parameters.write": {
+    params: z.object({ device: z.string(), name: z.string().min(1), value: z.number().finite() }),
+    result: ParameterWriteResult,
   },
   "transports.listSerial": {
     params: z.object({}),
@@ -286,6 +307,8 @@ export const Events = {
   "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
   "python.changed": PythonStatus,
   "system.live.changed": LiveSystemState,
+  /** The Device reported a Device Parameter value (answer to a read or write, or unsolicited). */
+  "parameters.changed": z.object({ device: z.string(), parameter: DeviceParameter }),
 } as const;
 
 export type EventName = keyof typeof Events;

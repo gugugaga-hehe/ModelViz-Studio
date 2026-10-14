@@ -4,7 +4,8 @@
     "views": "Views",
     "view": {
       "telemetry": "Telemetry",
-      "model": "Model Lab"
+      "model": "Model Lab",
+      "parameters": "Device Parameters"
     }
   },
   "connection": {
@@ -268,5 +269,27 @@
     "start": "Run live",
     "stop": "Stop live System",
     "none": "Needs a System and a Signal"
+  },
+  "params": {
+    "heading": "Device Parameters",
+    "device": "Device",
+    "enumerate": "Read all from Device",
+    "explainPush": "Values here are read from and written to the Device directly, one Device Parameter at a time. Block Parameters are never changed here.",
+    "notRunning": "Start {{device}} (connect or start a Virtual Device) to access its Device Parameters.",
+    "notFromReplay": "A Log Replay cannot reach the Device. Connect to {{device}} or start a Virtual Device.",
+    "missing": "The Device did not report Device Parameters with index {{indices}}.",
+    "name": "Name",
+    "type": "Type",
+    "deviceValue": "Value on Device",
+    "newValue": "New value",
+    "newValueFor": "New value for {{name}}",
+    "status": "Acknowledgement",
+    "write": "Write",
+    "read": "Read",
+    "waiting": "Waiting for the Device…",
+    "acknowledged": "Acknowledged by the Device",
+    "readOk": "Read from the Device",
+    "refused": "Refused: requested {{requested}}, Device kept {{value}}",
+    "notANumber": "Enter a number"
   }
 }

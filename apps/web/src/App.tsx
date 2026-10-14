@@ -5,6 +5,7 @@ import { ConnectionBadge } from "./components/ConnectionBadge";
 import { DevicesPanel } from "./components/DevicesPanel";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { ModelLab } from "./components/model/ModelLab";
+import { ParametersView } from "./components/ParametersView";
 import { ProjectPanel } from "./components/ProjectPanel";
 import { LiveSystemsPanel } from "./components/LiveSystemsPanel";
 import { RecordingsPanel } from "./components/RecordingsPanel";
@@ -15,7 +16,7 @@ export function App() {
   const { t } = useTranslation();
   const project = useSession((s) => s.project);
   const [choosing, setChoosing] = useState(false);
-  const [view, setView] = useState<"telemetry" | "model">("telemetry");
+  const [view, setView] = useState<"telemetry" | "model" | "parameters">("telemetry");
   const showChooser = !project || choosing;
 
   return (
@@ -25,13 +26,13 @@ export function App() {
           <h1 className="font-semibold">{t("app.title")}</h1>
           {project && !showChooser && (
             <nav className="ml-2 flex gap-1" role="tablist" aria-label={t("app.views")}>
-              {(["telemetry", "model"] as const).map((v) => (
+              {(["telemetry", "model", "parameters"] as const).map((v) => (
                 <button
                   key={v}
                   role="tab"
                   aria-selected={view === v}
                   onClick={() => setView(v)}
-                  className={`rounded px-2 py-1 text-sm ${view === v ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
+                  className={`whitespace-nowrap rounded px-2 py-1 text-sm ${view === v ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
                 >
                   {t(`app.view.${v}`)}
                 </button>
@@ -61,6 +62,10 @@ export function App() {
       ) : view === "model" ? (
         <main className="flex min-h-0 flex-1 p-3">
           <ModelLab />
+        </main>
+      ) : view === "parameters" ? (
+        <main className="flex min-h-0 flex-1 p-3">
+          <ParametersView />
         </main>
       ) : (
         <main className="flex min-h-0 flex-1 gap-3 p-3">

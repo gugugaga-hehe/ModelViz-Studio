@@ -4,7 +4,8 @@
     "views": "檢視",
     "view": {
       "telemetry": "遙測",
-      "model": "Model Lab"
+      "model": "Model Lab",
+      "parameters": "Device Parameter"
     }
   },
   "connection": {
@@ -268,5 +269,27 @@
     "start": "即時執行",
     "stop": "停止 live System",
     "none": "需要 System 與 Signal"
+  },
+  "params": {
+    "heading": "Device Parameter",
+    "device": "Device",
+    "enumerate": "從 Device 讀取全部",
+    "explainPush": "這裡的數值直接從 Device 讀取、寫入 Device，一次一個 Device Parameter。這裡永遠不會改動 Block Parameter。",
+    "notRunning": "請先啟動 {{device}}（連線或啟動 Virtual Device）才能存取它的 Device Parameter。",
+    "notFromReplay": "Log Replay 無法連到 Device。請連線到 {{device}} 或啟動 Virtual Device。",
+    "missing": "Device 沒有回報索引為 {{indices}} 的 Device Parameter。",
+    "name": "名稱",
+    "type": "型別",
+    "deviceValue": "Device 上的值",
+    "newValue": "新值",
+    "newValueFor": "{{name}} 的新值",
+    "status": "確認",
+    "write": "寫入",
+    "read": "讀取",
+    "waiting": "等待 Device 回應…",
+    "acknowledged": "Device 已確認",
+    "readOk": "已從 Device 讀取",
+    "refused": "被拒絕：要求 {{requested}}，Device 保留 {{value}}",
+    "notANumber": "請輸入數字"
   }
 }

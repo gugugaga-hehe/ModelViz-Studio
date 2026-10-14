@@ -25,6 +25,13 @@ const VIRTUAL_BENCH_DEVICES = `devices:
     frameFormat: frame-formats/bench.yaml
     # Behaviour when this Device is run as a Virtual Device.
     virtual:
+      # Simulated Device Parameters, as the firmware would expose them.
+      parameters:
+        RATE_KP: { value: 0.8, min: 0, max: 5 }
+        RATE_KI: { value: 40, min: 0, max: 200 }
+        GYRO_LPF_HZ: { value: 80, min: 5, max: 500 }
+        CTRL_MODE: { value: 1, type: uint8, min: 0, max: 3 }
+        FW_VERSION: { value: 10203, type: int32, readOnly: true }
       messages:
         DIALECT_INFO:
           rateHz: 1
@@ -130,6 +137,35 @@ messages:
       <field type="uint32_t" name="custom_mode">Firmware-specific mode.</field>
       <field type="uint8_t" name="system_status">System status flag.</field>
       <field type="uint8_t_mavlink_version" name="mavlink_version">MAVLink version.</field>
+    </message>
+    <!-- Device Parameter protocol, as defined in MAVLink common.xml. -->
+    <message id="20" name="PARAM_REQUEST_READ">
+      <description>Request to read the onboard parameter with param_id or param_index.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="int16_t" name="param_index">Parameter index, or -1 to use param_id.</field>
+    </message>
+    <message id="21" name="PARAM_REQUEST_LIST">
+      <description>Request all parameters of this component.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+    </message>
+    <message id="22" name="PARAM_VALUE">
+      <description>The current value of an onboard parameter.</description>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="float" name="param_value">Onboard parameter value.</field>
+      <field type="uint8_t" name="param_type">MAV_PARAM_TYPE of the parameter.</field>
+      <field type="uint16_t" name="param_count">Total number of onboard parameters.</field>
+      <field type="uint16_t" name="param_index">Index of this onboard parameter.</field>
+    </message>
+    <message id="23" name="PARAM_SET">
+      <description>Set a parameter value; the Device answers with PARAM_VALUE.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="float" name="param_value">Onboard parameter value.</field>
+      <field type="uint8_t" name="param_type">MAV_PARAM_TYPE of the parameter.</field>
     </message>
     <message id="42002" name="DIALECT_INFO">
       <description>Fingerprint of the dialect the firmware was built with.</description>
