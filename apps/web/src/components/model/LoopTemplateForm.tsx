@@ -44,7 +44,7 @@ export function LoopTemplateForm({ onCreated }: { onCreated: (path: string) => v
       <div className="flex gap-1">
         <label className="flex flex-[2] flex-col gap-1">
           {t("loop.name")}
-          <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
+          <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" patternHint={t("form.identifier")} />
         </label>
         <label className="flex flex-1 flex-col gap-1">
           {t("loop.rate")}

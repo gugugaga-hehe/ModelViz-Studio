@@ -397,5 +397,12 @@
     "unreadable": "無法還原此 Project 已儲存的 Layout。原檔保持不變，重設前 Panel 的變更不會儲存。",
     "reset": "重設 Layout",
     "backedUp": "舊的 Layout 已保留為 Project 資料夾中的 {{file}}。"
+  },
+  "form": {
+    "required": "此欄位為必填。",
+    "invalid": "此值無效。",
+    "min": "請輸入 {{min}} 以上的值。",
+    "max": "請輸入 {{max}} 以下的值。",
+    "identifier": "只能使用英文字母、數字、_ 與 -，且須以字母開頭。"
   }
 }
