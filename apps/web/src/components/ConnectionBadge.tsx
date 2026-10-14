@@ -14,8 +14,8 @@ export function ConnectionBadge() {
   const connection = useSession((s) => s.connection);
   const error = useSession((s) => s.connectionError);
   return (
-    <div role="status" data-testid="connection-status" data-state={connection} className="flex items-center gap-2 text-sm">
-      <span className={`size-2.5 rounded-full ${DOT[connection]}`} aria-hidden />
+    <div role="status" data-testid="connection-status" data-state={connection} className="flex items-center gap-2 whitespace-nowrap text-sm">
+      <span className={`size-2.5 shrink-0 rounded-full ${DOT[connection]}`} aria-hidden />
       <span>{t(`connection.${connection}`, { message: error ?? "" })}</span>
     </div>
   );

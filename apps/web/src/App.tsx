@@ -22,11 +22,12 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-4 py-2">
-        <div className="flex items-center gap-3">
-          <h1 className="font-semibold">{t("app.title")}</h1>
+      {/* one row at any width: labels never wrap, the view tabs scroll when space runs out */}
+      <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-4 py-2" data-testid="app-header">
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="shrink-0 whitespace-nowrap font-semibold">{t("app.title")}</h1>
           {project && !showChooser && (
-            <nav className="ml-2 flex gap-1" role="tablist" aria-label={t("app.views")}>
+            <nav className="ml-2 flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label={t("app.views")}>
               {(["telemetry", "model", "parameters"] as const).map((v) => (
                 <Button
                   key={v}
@@ -35,7 +36,7 @@ export function App() {
                   onClick={() => setView(v)}
                   variant="toggle"
                   pressed={view === v}
-                  className="whitespace-nowrap text-sm"
+                  className="shrink-0 whitespace-nowrap text-sm"
                 >
                   {t(`app.view.${v}`)}
                 </Button>
@@ -46,15 +47,17 @@ export function App() {
             <Button
               onClick={() => setChoosing((c) => !c)}
               variant="subtle"
-              className="text-sm"
+              className="min-w-0 text-sm"
               title={project.path}
             >
-              <span data-testid="project-name">{project.name}</span>
-              <ArrowLeftRight size={14} aria-label={t("project.switch")} />
+              <span data-testid="project-name" className="max-w-48 truncate">
+                {project.name}
+              </span>
+              <ArrowLeftRight size={14} aria-label={t("project.switch")} className="shrink-0" />
             </Button>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-4">
           <ConnectionBadge />
           <LanguageSelect />
         </div>
