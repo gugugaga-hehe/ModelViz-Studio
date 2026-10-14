@@ -35,6 +35,8 @@ export class PythonEnvironment {
   private status: PythonStatus;
   private running: Promise<void> | null = null;
   private again = false;
+  /** Declaration hash of the last successful sync. */
+  private syncedHash: string | null = null;
 
   constructor(
     readonly projectPath: string,
@@ -109,6 +111,9 @@ export class PythonEnvironment {
       this.set({ state: "absent", dependencies: [], locked: [], error: undefined, version: undefined });
       return;
     }
+    const wanted = declarationHash(cfg);
+    // Reopening the Project with an unchanged declaration keeps a ready environment as is.
+    if (this.status.state === "ready" && this.syncedHash === wanted && (await exists(venvPython(this.projectPath)))) return;
     this.set({ state: "preparing", dependencies: cfg.dependencies, error: undefined, log: [] });
     try {
       await this.ensureGitignore();
@@ -141,6 +146,7 @@ export class PythonEnvironment {
         .split("\n")
         .map((l) => l.trim())
         .filter((l) => l && !l.startsWith("#"));
+      this.syncedHash = hash;
       this.set({ state: "ready", version, locked });
     } catch (e) {
       this.set({ state: "failed", error: (e as Error).message });

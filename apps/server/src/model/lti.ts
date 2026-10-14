@@ -40,6 +40,8 @@ function blockModel(sys: LoadedSystem, name: string, overrides: Record<string, n
       const { num, den } = differenceTransferFunction(def, params);
       ss = tf2ss(num, den);
       blockDomain = "discrete";
+    } else if (f.kind === "python") {
+      throw new NotLinearError(`${name} (${def.path}) is a Python Block, which has no analytic model; use a measured Frequency Response`);
     } else {
       if (!f.linear) throw new NotLinearError(`${name} (${def.path}) is not declared linear`);
       ss = { A: [], B: [], C: [], D: formulaGain(def, params) };

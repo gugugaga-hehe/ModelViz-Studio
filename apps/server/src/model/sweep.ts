@@ -1,7 +1,9 @@
 import type { SweepAxis, SweepRequest, SweepResult } from "@modelviz/protocol";
 import { ProtocolFailure } from "../errors.ts";
 import { NotLinearError, bode, evalPoint, frequencyMetrics, linearFinalValues, logspace, loopMetrics, responseAt, stepMetrics, systemModel } from "./lti.ts";
-import { SystemEngine, SystemError, loadSystem } from "./system.ts";
+import type { PythonHost } from "./python-host.ts";
+import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
+import { withPython } from "./time-analysis.ts";
 
 /** Grid points along one axis. */
 export function axisValues(a: SweepAxis): number[] {
@@ -24,8 +26,18 @@ const finite = (v: number | null | undefined): number | null => (v === null || v
  * Evaluates the requested Metrics over a 1-D or 2-D grid of Block Parameter values. Yields to
  * the event loop between points so progress, cancellation and other requests keep flowing.
  */
-export async function runSweep(projectPath: string, req: SweepRequest, ctl: SweepControl): Promise<SweepResult> {
+export async function runSweep(projectPath: string, req: SweepRequest, ctl: SweepControl, python: string | null = null): Promise<SweepResult> {
   const sys = await loadSystem(projectPath, req.system);
+  if (sys.issues.length || !sys.file) throw new ProtocolFailure("invalid_system", sys.issues.map((i) => i.message).join("; "));
+  const host = withPython(sys, python);
+  try {
+    return await sweep(sys, req, ctl, host);
+  } finally {
+    host?.close();
+  }
+}
+
+async function sweep(sys: LoadedSystem, req: SweepRequest, ctl: SweepControl, host: PythonHost | null): Promise<SweepResult> {
   if (sys.issues.length || !sys.file) throw new ProtocolFailure("invalid_system", sys.issues.map((i) => i.message).join("; "));
   for (const a of req.axes) {
     const def = sys.defs.get(a.block);
@@ -55,9 +67,9 @@ export async function runSweep(projectPath: string, req: SweepRequest, ctl: Swee
 
     if (m.step.length) {
       try {
-        const engine = new SystemEngine(sys, overrides);
+        const engine = new SystemEngine(sys, overrides, host ? { python: host } : {});
         const count = Math.round(m.durationS * fs) + 1;
-        const out = engine.run(count, (name) => (name === engine.inputs[0] ? 1 : 0));
+        const out = await engine.run(count, (name) => (name === engine.inputs[0] ? 1 : 0));
         const times = Array.from({ length: count }, (_, i) => i / fs);
         const y = Array.from(out[engine.outputs.indexOf(m.output)]!);
         const finals = linearFinalValues(sys, overrides, engine.inputs[0]!);

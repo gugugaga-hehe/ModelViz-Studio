@@ -2,14 +2,32 @@ import type { StepMetrics, TimeAnalysisRequest, TimeAnalysisResult } from "@mode
 import { ProtocolFailure } from "../errors.ts";
 import { linearFinalValues, stepMetrics } from "./lti.ts";
 import { stimulusFn } from "./stimulus.ts";
-import { SystemEngine, SystemError, loadSystem } from "./system.ts";
+import { PythonHost } from "./python-host.ts";
+import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
 
 /** Runs a step, impulse or Stimulus response of a System from rest. */
-export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequest): Promise<TimeAnalysisResult> {
+export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequest, python: string | null = null): Promise<TimeAnalysisResult> {
   const sys = await loadSystem(projectPath, req.system);
+  const host = withPython(sys, python);
+  try {
+    return await timeAnalysis(sys, req, host ?? undefined);
+  } finally {
+    host?.close();
+  }
+}
+
+/** Starts a Python host when the System contains Python Blocks. */
+export function withPython(sys: LoadedSystem, python: string | null): PythonHost | null {
+  const needs = [...sys.defs.values()].some((d) => d.file.kind === "python");
+  if (!needs) return null;
+  if (!python) throw new ProtocolFailure("invalid_system", "This System has Python Blocks but the Project's Python environment is not ready");
+  return new PythonHost(python);
+}
+
+async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: PythonHost): Promise<TimeAnalysisResult> {
   let engine: SystemEngine;
   try {
-    engine = new SystemEngine(sys, req.parameters);
+    engine = new SystemEngine(sys, req.parameters, host ? { python: host } : {});
   } catch (e) {
     if (e instanceof SystemError) throw new ProtocolFailure("invalid_system", e.message);
     throw e;
@@ -29,7 +47,7 @@ export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequ
   const u = new Float64Array(count);
   let outputs: Float64Array[];
   try {
-    outputs = engine.run(count, (name, k, t) => {
+    outputs = await engine.run(count, (name, k, t) => {
       if (name !== input) return 0;
       const v = drive(k, t);
       u[k] = v;

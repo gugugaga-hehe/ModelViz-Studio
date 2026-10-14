@@ -121,13 +121,13 @@ export async function compareDiscretization(
   const count = Math.round(req.durationS * fs) + 1;
   const drive = stimulusFn(stim, req.durationS, fs);
   const input = Array.from({ length: count }, (_, k) => drive(k, k / fs));
-  const discrete = new SystemEngine(wrap(discreteDef, fs, {})).run(count, (_n, k) => input[k]!);
+  const discrete = await new SystemEngine(wrap(discreteDef, fs, {})).run(count, (_n, k) => input[k]!);
 
   // The continuous reference sees the same input: held per sample for steps and pulses
   // (exactly what a sampled system applies), and the true waveform for smooth Stimuli.
   const fine = fs * OVERSAMPLE;
   const held = stim.kind === "step" || stim.kind === "impulse";
-  const cont = new SystemEngine(wrap(def, fine, req.parameters)).run((count - 1) * OVERSAMPLE + 1, (_n, k, t) =>
+  const cont = await new SystemEngine(wrap(def, fine, req.parameters)).run((count - 1) * OVERSAMPLE + 1, (_n, k, t) =>
     held ? input[Math.floor(k / OVERSAMPLE)]! : drive(k, t),
   );
   const continuous = Array.from({ length: count }, (_, k) => cont[0]![k * OVERSAMPLE]!);

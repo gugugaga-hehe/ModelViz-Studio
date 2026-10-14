@@ -55,6 +55,20 @@ export const BlockFile = z.discriminatedUnion("kind", [
     /** Declare when the equations are linear (enables analytic frequency-domain Analyses). */
     linear: z.boolean().default(false),
   }),
+  /**
+   * Python Block (ADR-0003): a class in a Python file run in the Project's environment.
+   * Its outputs may depend on its current inputs (direct feedthrough).
+   */
+  z.object({
+    kind: z.literal("python"),
+    ...common,
+    /** Python file, relative to the Project. */
+    module: z.string().min(1),
+    class: z.string().default("Block"),
+    inputs: z.array(z.string()).default(["u"]),
+    outputs: z.array(z.string()).default(["y"]),
+    linear: z.boolean().default(false),
+  }),
   z.object({
     kind: z.literal("formula"),
     ...common,
@@ -93,8 +107,11 @@ export type SystemFile = z.infer<typeof SystemFile>;
 
 export const BlockInfo = z.object({
   path: z.string(),
+  /** Python Blocks: the module file, relative to the Project. */
+  module: z.string().optional(),
   kind: z.string().optional(),
-  domain: Domain.optional(),
+  /** "python": runs at the System rate in the Project's Python environment. */
+  domain: z.enum(["continuous", "discrete", "python"]).optional(),
   linear: z.boolean().optional(),
   inputs: z.array(z.string()).default([]),
   outputs: z.array(z.string()).default([]),
