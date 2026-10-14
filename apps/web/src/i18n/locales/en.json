@@ -392,5 +392,10 @@
       "degrees": "Degrees",
       "pickSignals": "Select quaternion or Euler Signals to view attitude in 3D"
     }
+  },
+  "layout": {
+    "unreadable": "The saved Layout of this Project could not be restored. It is kept unchanged, and Panel changes are not saved until you reset it.",
+    "reset": "Reset Layout",
+    "backedUp": "The old Layout was kept as {{file}} in the Project folder."
   }
 }

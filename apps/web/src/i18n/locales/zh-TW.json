@@ -392,5 +392,10 @@
       "degrees": "度 (deg)",
       "pickSignals": "選擇四元數或歐拉角 Signal 以 3D 檢視姿態"
     }
+  },
+  "layout": {
+    "unreadable": "無法還原此 Project 已儲存的 Layout。原檔保持不變，重設前 Panel 的變更不會儲存。",
+    "reset": "重設 Layout",
+    "backedUp": "舊的 Layout 已保留為 Project 資料夾中的 {{file}}。"
   }
 }

@@ -26,7 +26,7 @@ import { type SweepControl, runSweep } from "./model/sweep.ts";
 import type { PythonRuntime } from "./model/python-host.ts";
 import { type SampledSignal, runTimeAnalysis, withPython } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
-import { type OpenedProject, createProject, openProject, readLayout, updateManifest, writeLayout } from "./project-store.ts";
+import { type OpenedProject, createProject, openProject, readLayout, resetLayout, updateManifest, writeLayout } from "./project-store.ts";
 import { LiveSystem } from "./live-system.ts";
 import { DeviceLink } from "./device-link.ts";
 import type { ParameterClient } from "./device-parameters.ts";
@@ -111,6 +111,7 @@ export class Workbench {
       await writeLayout(this.requireProject().path, layout);
       return {};
     },
+    "layout.reset": async () => ({ backup: await resetLayout(this.requireProject().path) }),
     "devices.list": async () => {
       this.requireProject();
       return [...this.devices.values()].map(

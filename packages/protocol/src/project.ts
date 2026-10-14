@@ -160,10 +160,26 @@ export const LAYOUT_FILE = "layout.yaml";
  * each shows. `dock` is owned by the web app's layout manager; the server stores it as is.
  */
 export const PanelLayout = z.object({
-  version: z.literal(1),
+  version: z.number().int().positive(),
   dock: z.record(z.string(), z.unknown()),
 });
 export type PanelLayout = z.infer<typeof PanelLayout>;
+
+/**
+ * Version of `PanelLayout.dock` the web app writes. Older layouts are migrated by the web app on
+ * load; newer ones (saved by a later ModelViz Studio) are reported as unreadable.
+ */
+export const LAYOUT_VERSION = 1;
+
+/** What the open Project holds as its Panel layout. */
+export const LayoutRead = z.discriminatedUnion("status", [
+  /** No layout saved yet. */
+  z.object({ status: z.literal("none") }),
+  z.object({ status: z.literal("ok"), layout: PanelLayout }),
+  /** A layout file exists but cannot be used; it is left untouched until the user resets it. */
+  z.object({ status: z.literal("unreadable"), reason: z.string() }),
+]);
+export type LayoutRead = z.infer<typeof LayoutRead>;
 
 /** Templates offered when creating a Project. */
 export const ProjectTemplate = z.enum(["empty", "virtual-bench"]);
