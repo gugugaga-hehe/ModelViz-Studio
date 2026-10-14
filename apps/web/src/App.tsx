@@ -5,7 +5,7 @@ import { ConnectionBadge } from "./components/ConnectionBadge";
 import { DevicesPanel } from "./components/DevicesPanel";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { ProjectPanel } from "./components/ProjectPanel";
-import { TimePlotPanel } from "./components/TimePlotPanel";
+import { PlotStack } from "./components/PlotStack";
 import { useSession } from "./state/session";
 
 export function App() {
@@ -44,7 +44,7 @@ export function App() {
           <aside className="w-64 shrink-0 overflow-auto rounded-lg border border-border bg-surface p-3">
             <DevicesPanel />
           </aside>
-          <TimePlotPanel />
+          <PlotStack />
         </main>
       )}
     </div>
