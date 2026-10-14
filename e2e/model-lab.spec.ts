@@ -5,6 +5,8 @@ import { expect, test } from "@playwright/test";
 import { openProjectChooser } from "./helpers.ts";
 
 test("edits Blocks, builds a System from the Loop Template and runs a step response", async ({ page }) => {
+  // the measured Bode (40 stepped sines, closed and broken loop) alone takes ~15 s on a fast machine
+  test.setTimeout(120000);
   const dir = await mkdtemp(join(tmpdir(), "modelviz-e2e-"));
   try {
     await page.goto("/");
@@ -39,7 +41,7 @@ test("edits Blocks, builds a System from the Loop Template and runs a step respo
     // the same loop, measured by simulation
     await analysis.getByLabel("Method").selectOption("measured");
     await analysis.getByRole("button", { name: "Run" }).click();
-    await expect(bode).toHaveAttribute("data-method", "measured", { timeout: 20000 });
+    await expect(bode).toHaveAttribute("data-method", "measured", { timeout: 90000 });
     await expect(bode).toContainText("measured");
     await analysis.getByLabel("Method").selectOption("auto");
     await analysis.getByLabel("Analysis", { exact: true }).selectOption("polezero");

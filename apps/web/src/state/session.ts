@@ -1,5 +1,5 @@
 import { type ConnectionState, ModelVizClient } from "@modelviz/client";
-import { type BlockInfo, type DeviceInfo, type PythonStatus, type SystemInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
+import { type BlockInfo, type DeviceInfo, type LiveSystemState, type PythonStatus, type SystemInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
 import { create } from "zustand";
 import { SignalStore } from "./signal-store";
 
@@ -24,6 +24,7 @@ interface SessionState {
   blocks: BlockInfo[];
   systems: SystemInfo[];
   python: PythonStatus | null;
+  live: Record<string, LiveSystemState>;
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -38,15 +39,16 @@ export const useSession = create<SessionState>(() => ({
   blocks: [],
   systems: [],
   python: null,
+  live: {},
 }));
 
 async function loadProjectState(project: ProjectInfo | null): Promise<void> {
   signalStore.clear();
   if (!project) {
-    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [], blocks: [], systems: [], python: null });
+    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [], blocks: [], systems: [], python: null, live: {} });
     return;
   }
-  const [devices, signals, sources, recordings, blocks, systems, python] = await Promise.all([
+  const [devices, signals, sources, recordings, blocks, systems, python, live] = await Promise.all([
     client.request("devices.list", {}),
     client.request("signals.list", {}),
     client.request("sources.list", {}),
@@ -54,6 +56,7 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     client.request("blocks.list", {}),
     client.request("systems.list", {}),
     client.request("python.status", {}),
+    client.request("system.live.list", {}),
   ]);
   useSession.setState({
     project,
@@ -65,6 +68,7 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     blocks,
     systems,
     python,
+    live: Object.fromEntries(live.map((l) => [l.system, l])),
   });
 }
 
@@ -78,6 +82,7 @@ client.on("project.changed", (project) => void loadProjectState(project).catch((
 client.on("source.changed", (s) => useSession.setState((st) => ({ sources: { ...st.sources, [s.device]: s } })));
 client.on("link.health", (h) => useSession.setState((st) => ({ health: { ...st.health, [h.device]: h } })));
 client.on("python.changed", (python) => useSession.setState({ python }));
+client.on("system.live.changed", (l) => useSession.setState((st) => ({ live: { ...st.live, [l.system]: l } })));
 client.on("recording.changed", (r) =>
   useSession.setState((st) => {
     const others = st.recordings.filter((x) => x.id !== r.id);

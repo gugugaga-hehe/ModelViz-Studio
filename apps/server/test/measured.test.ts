@@ -92,12 +92,15 @@ describe("measured Frequency Response", () => {
     const c = await h.client();
     await modelProject(h, c, {
       "blocks/k.yaml": "kind: formula\nparameters: { K: { default: 1 } }\noutputs:\n  y: K*u\nlinear: true\n",
-      "blocks/plant.yaml": "kind: transfer-function\ndomain: continuous\nnumerator: [100]\ndenominator: [1, 30, 200, 0]\n",
+      "blocks/plant.yaml": "kind: transfer-function\ndomain: continuous\nnumerator: [2000]\ndenominator: [1, 30, 200, 0]\n",
     });
     await c.request("system.fromLoopTemplate", { name: "loop", sampleRateHz: 2000, controller: "blocks/k.yaml", plant: "blocks/plant.yaml" });
-    const grid = { system: "systems/loop.yaml", openLoopAt: "plant.u", fMinHz: 0.1, fMaxHz: 20, points: 30 };
+    // gain crossover ≈ 1.19 Hz (PM ≈ 32.6°), phase crossover ≈ 2.25 Hz (GM ≈ 9.5 dB): both inside the grid
+    const grid = { system: "systems/loop.yaml", openLoopAt: "plant.u", fMinHz: 0.5, fMaxHz: 5, points: 12 };
     const m = await c.request("analysis.frequency", { ...grid, method: "measured" });
     const a = await c.request("analysis.frequency", { ...grid, method: "analytic" });
+    expect(a.loop!.phaseMarginDeg).toBeCloseTo(32.6, 0);
+    expect(a.loop!.gainMarginDb).toBeCloseTo(9.5, 0);
     expect(Math.abs(m.loop!.phaseMarginDeg! - a.loop!.phaseMarginDeg!)).toBeLessThan(2);
     expect(Math.abs(m.loop!.gainMarginDb! - a.loop!.gainMarginDb!)).toBeLessThan(0.5);
   }, 120000);

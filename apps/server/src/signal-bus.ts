@@ -20,6 +20,8 @@ export class SignalBus {
   private signals: SignalInfo[] = [];
   private readonly pending = new Map<number, Pending>();
   private readonly subscribers = new Map<WebSocket, Set<number>>();
+  /** Server-side listeners (e.g. live Systems) per handle. */
+  private readonly taps = new Map<number, Set<(time: number, value: number) => void>>();
   private readonly timer: ReturnType<typeof setInterval>;
 
   constructor() {
@@ -66,8 +68,18 @@ export class SignalBus {
     this.subscribers.delete(ws);
   }
 
+  /** Calls `fn` for every sample of a Signal published from now on. */
+  tap(handle: number, fn: (time: number, value: number) => void): () => void {
+    let set = this.taps.get(handle);
+    if (!set) this.taps.set(handle, (set = new Set()));
+    set.add(fn);
+    return () => set.delete(fn);
+  }
+
   /** Appends a sample for one Signal; dropped immediately if nobody is subscribed. */
   publish(handle: number, time: number, value: number, hostTime: number | null = null): void {
+    const taps = this.taps.get(handle);
+    if (taps) for (const fn of taps) fn(time, value);
     if (!this.hasSubscriber(handle)) return;
     let p = this.pending.get(handle);
     if (!p) this.pending.set(handle, (p = { times: [], values: [], hostTimes: [] }));

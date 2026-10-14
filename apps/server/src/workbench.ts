@@ -14,17 +14,19 @@ import {
 } from "@modelviz/protocol";
 import { WebSocket } from "ws";
 import { ActiveSource, type SourceOptions } from "./active-source.ts";
-import type { DeviceLink, SignalTarget } from "./device-link.ts";
+import type { SignalTarget } from "./device-link.ts";
 import { type CsvTable, CsvReplaySource, csvInfo, importCsv, loadImports } from "./csv-import.ts";
 import { ProtocolFailure } from "./errors.ts";
 import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate, writeProjectFile } from "./model/store.ts";
-import { loadSystem } from "./model/system.ts";
+import { SystemEngine, SystemError, loadSystem, systemName } from "./model/system.ts";
 import { compareDiscretization, discretizeBlock } from "./model/discretization-service.ts";
 import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts";
 import { type SweepControl, runSweep } from "./model/sweep.ts";
-import { runTimeAnalysis } from "./model/time-analysis.ts";
+import { type SampledSignal, runTimeAnalysis, withPython } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject, updateManifest } from "./project-store.ts";
+import { LiveSystem } from "./live-system.ts";
+import { DeviceLink } from "./device-link.ts";
 import { PythonEnvironment } from "./python-env.ts";
 import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
 import { SignalBus } from "./signal-bus.ts";
@@ -63,6 +65,8 @@ export class Workbench {
   private imports = new Map<string, CsvImport>();
   /** Python environment of the open Project. */
   private python: PythonEnvironment | null = null;
+  /** Systems running from live Signals, by System path. */
+  private readonly live = new Map<string, LiveSystem>();
   /** Long-running Analyses by client-chosen id, for cancellation. */
   private readonly jobs = new Map<string, SweepControl>();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
@@ -79,6 +83,7 @@ export class Workbench {
 
   close(): void {
     clearInterval(this.healthTimer);
+    for (const l of this.live.values()) l.stop();
     for (const d of this.devices.values()) d.source?.stop();
     for (const i of this.imports.values()) i.source?.stop();
     this.bus.close();
@@ -287,7 +292,8 @@ export class Workbench {
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();
-      const result = await runTimeAnalysis(project.path, req, this.python?.python ?? null);
+      const signal = req.kind === "signal" && req.signal ? await this.recordedSignal(req.signal.recording, req.signal.signal) : null;
+      const result = await runTimeAnalysis(project.path, req, this.python?.python ?? null, signal);
       this.publishSystemOutputs(result.system, result.times, result.series);
       return result;
     },
@@ -307,6 +313,51 @@ export class Workbench {
       void this.python!.sync();
       return this.python!.current;
     },
+    "system.live.start": async (p) => {
+      const { system, input, signal, parameters } = Methods["system.live.start"].params.parse(p);
+      const project = this.requireProject();
+      if (this.live.get(system)?.running) throw new ProtocolFailure("conflict", `${system} is already running live`);
+      const info = this.bus.list().find((s) => s.id === signal);
+      if (!info) throw new ProtocolFailure("not_found", `Unknown Signal ${signal}`);
+      const sys = await loadSystem(project.path, system);
+      const host = withPython(sys, this.python?.python ?? null);
+      let engine: SystemEngine;
+      try {
+        engine = new SystemEngine(sys, parameters, host ? { python: host } : {});
+      } catch (e) {
+        host?.close();
+        throw new ProtocolFailure("invalid_system", e instanceof SystemError ? e.message : (e as Error).message);
+      }
+      const inp = input ?? engine.inputs[0]!;
+      if (!engine.inputs.includes(inp)) {
+        host?.close();
+        throw new ProtocolFailure("invalid_params", `System has no input ${inp}`);
+      }
+      const name = systemName(system);
+      const live = new LiveSystem(
+        system,
+        inp,
+        signal,
+        engine,
+        host,
+        (fn) => this.bus.tap(info.handle, fn),
+        (out, t, v) => this.bus.publish(this.bus.handleOf(signalId(`system:${name}`, "out", out)), t, v),
+        (st) => this.broadcast("system.live.changed", st),
+      );
+      this.live.set(system, live);
+      const st = live.state();
+      this.broadcast("system.live.changed", st);
+      return st;
+    },
+    "system.live.stop": async (p) => {
+      const { system } = Methods["system.live.stop"].params.parse(p);
+      const live = this.live.get(system);
+      if (!live) throw new ProtocolFailure("not_found", `${system} is not running live`);
+      live.stop();
+      this.live.delete(system);
+      return live.state();
+    },
+    "system.live.list": async () => [...this.live.values()].map((l) => l.state()),
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
       const src = this.sourceOf(device);
@@ -315,6 +366,36 @@ export class Workbench {
       return src.state();
     },
   };
+
+  /** All samples of one Signal in a Recording (decoded with the current Frame Format) or CSV import. */
+  private async recordedSignal(recording: string, signal: string): Promise<SampledSignal> {
+    const project = this.requireProject();
+    const imp = this.imports.get(recording);
+    if (imp) {
+      const col = imp.table.columns.findIndex((c) => signalId(recording, "CSV", c) === signal);
+      if (col < 0) throw new ProtocolFailure("not_found", `Import ${recording} has no Signal ${signal}`);
+      return { t: imp.table.times.map((ms) => ms / 1000), v: imp.table.values[col]! };
+    }
+    const reader = await RecordingReader.open(project.path, recording);
+    const d = this.devices.get(reader.meta.device);
+    if (!d?.format) throw new ProtocolFailure("invalid_project", `Recording ${recording}: Device ${reader.meta.device} has no Frame Format`);
+    const info = this.bus.list().find((s) => s.id === signal && s.device === reader.meta.device);
+    if (!info) throw new ProtocolFailure("not_found", `Recording ${recording} has no Signal ${signal}`);
+    const times: number[] = [];
+    const values: number[] = [];
+    const link = new DeviceLink(reader.meta.device, d.format, d.signalMap, (h, t, v) => {
+      if (h === info.handle) {
+        times.push(t);
+        values.push(v);
+      }
+    });
+    for (let i = 0; i < reader.chunkCount; i += 1024) {
+      for (const chunk of await reader.read(i, Math.min(reader.chunkCount, i + 1024))) link.ingest(chunk.bytes, chunk.time);
+    }
+    if (!times.length) throw new ProtocolFailure("not_found", `Recording ${recording} contains no samples of ${signal}`);
+    const t0 = times[0]!;
+    return { t: Float64Array.from(times, (t) => (t - t0) / 1000), v: Float64Array.from(values) };
+  }
 
   /** Runs a cancellable, progress-reporting Analysis registered under a client-chosen id. */
   private async job<T>(id: string, work: (ctl: SweepControl) => Promise<T>): Promise<T> {
@@ -440,6 +521,10 @@ export class Workbench {
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {
     for (const d of this.devices.values()) d.source?.stop();
     for (const i of this.imports.values()) i.source?.stop();
+    if (this.project?.path !== opened.info.path) {
+      for (const l of this.live.values()) l.stop();
+      this.live.clear();
+    }
     this.devices = new Map();
     this.imports = new Map();
     const signals: SignalInfo[] = [];

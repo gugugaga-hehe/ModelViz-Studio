@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { existsSync } from "node:fs";
 import { type AddressInfo, type Server, type Socket, createServer } from "node:net";
@@ -11,11 +11,13 @@ import { benchProject, collectSamples, harness } from "./harness.ts";
 
 function waitForSource(c: ModelVizClient, state: SourceState["state"], timeoutMs = 8000): Promise<SourceState> {
   return new Promise((resolve, reject) => {
+    const seen: string[] = [];
     const timer = setTimeout(() => {
       off();
-      reject(new Error(`timed out waiting for source state ${state}`));
+      reject(new Error(`timed out waiting for source state ${state} (saw: ${seen.join(" → ") || "nothing"})`));
     }, timeoutMs);
     const off = c.on("source.changed", (s) => {
+      seen.push(s.error ? `${s.state} (${s.error})` : s.state);
       if (s.state === state) {
         clearTimeout(timer);
         off();
@@ -189,15 +191,29 @@ describe("UDP Transport", () => {
 
 const hasSocat = spawnSync("which", ["socat"]).status === 0;
 
-/** A pseudo-terminal pair: the server opens `a` as a serial port, the test writes to `b`. */
-function ptyPair(dir: string): { a: string; b: string; proc: ChildProcess; ready: Promise<void> } {
+/**
+ * A pseudo-terminal pair: the server opens `a` as a serial port, the test writes to `b`.
+ * `unplug` waits for socat to exit, because socat removes its links on exit and would otherwise
+ * delete the links of a replugged pair created at the same paths.
+ */
+function ptyPair(dir: string): { a: string; b: string; ready: Promise<void>; unplug(): Promise<void> } {
   const a = join(dir, "ttyDEV");
   const b = join(dir, "ttyTEST");
   const proc = spawn("socat", [`pty,raw,echo=0,link=${a}`, `pty,raw,echo=0,link=${b}`], { stdio: "ignore" });
+  const exited = new Promise<void>((r) => proc.once("exit", () => r()));
   const ready = (async () => {
-    for (let i = 0; i < 100 && !(existsSync(a) && existsSync(b)); i++) await new Promise((r) => setTimeout(r, 20));
+    for (let i = 0; i < 250 && !(existsSync(a) && existsSync(b)); i++) await new Promise((r) => setTimeout(r, 20));
+    if (!(existsSync(a) && existsSync(b))) throw new Error("socat did not create the pseudo-terminal links");
   })();
-  return { a, b, proc, ready };
+  return {
+    a,
+    b,
+    ready,
+    unplug: async () => {
+      if (proc.exitCode === null && proc.signalCode === null) proc.kill();
+      await exited;
+    },
+  };
 }
 
 describe.skipIf(!hasSocat)("serial Transport (pseudo-terminal)", () => {
@@ -233,7 +249,7 @@ describe.skipIf(!hasSocat)("serial Transport (pseudo-terminal)", () => {
       // unplug
       const lost = waitForSource(c, "lost");
       await tty.close();
-      pty.proc.kill();
+      await pty.unplug();
       await lost;
       // replug at the same path
       const reverify = waitForSource(c, "verifying");
@@ -250,7 +266,7 @@ describe.skipIf(!hasSocat)("serial Transport (pseudo-terminal)", () => {
     } finally {
       await c.request("source.stop", { device: "bench" });
       await tty.close().catch(() => {});
-      pty.proc.kill();
+      await pty.unplug();
     }
   });
 });

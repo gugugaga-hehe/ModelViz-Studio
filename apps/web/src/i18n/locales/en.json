@@ -158,7 +158,11 @@
     },
     "methodLabel": "Method",
     "methodAuto": "auto ({{method}})",
-    "measureAmplitude": "Measurement amplitude"
+    "measureAmplitude": "Measurement amplitude",
+    "recorded": "Recorded Signal",
+    "recording": "Recording",
+    "inputSignal": "Input Signal",
+    "startS": "From [s]"
   },
   "disc": {
     "title": "Discretization",
@@ -256,5 +260,13 @@
     "apply": "Apply",
     "setUp": "Set up Python environment…",
     "edit": "Edit dependencies…"
+  },
+  "live": {
+    "heading": "Live Systems",
+    "system": "System",
+    "signal": "Input Signal",
+    "start": "Run live",
+    "stop": "Stop live System",
+    "none": "Needs a System and a Signal"
   }
 }
