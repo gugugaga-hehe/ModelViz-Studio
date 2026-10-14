@@ -402,5 +402,12 @@
     "dropped_one": "The display fell behind: {{count}} live sample was skipped (the Device and Recordings were not affected).",
     "dropped_other": "The display fell behind: {{count}} live samples were skipped (the Device and Recordings were not affected).",
     "dismiss": "Dismiss"
+  },
+  "form": {
+    "required": "This field is required.",
+    "invalid": "This value is not valid.",
+    "min": "Enter {{min}} or more.",
+    "max": "Enter {{max}} or less.",
+    "identifier": "Use letters, digits, _ and -, starting with a letter."
   }
 }

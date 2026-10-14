@@ -402,5 +402,12 @@
     "dropped_one": "畫面處理不及：略過了 {{count}} 筆即時樣本（Device 與 Recording 不受影響）。",
     "dropped_other": "畫面處理不及：略過了 {{count}} 筆即時樣本（Device 與 Recording 不受影響）。",
     "dismiss": "關閉"
+  },
+  "form": {
+    "required": "此欄位為必填。",
+    "invalid": "此值無效。",
+    "min": "請輸入 {{min}} 以上的值。",
+    "max": "請輸入 {{max}} 以下的值。",
+    "identifier": "只能使用英文字母、數字、_ 與 -，且須以字母開頭。"
   }
 }
