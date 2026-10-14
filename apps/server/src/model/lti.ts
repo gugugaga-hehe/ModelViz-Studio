@@ -366,9 +366,12 @@ export function isStable(model: SystemModel, ps: Complex[]): boolean {
   return model.domain === "continuous" ? ps.every((p) => p.re < 0) : ps.every((p) => Math.hypot(p.re, p.im) < 1);
 }
 
-/** Step-response Metrics relative to the final value. */
-export function stepMetrics(times: number[], y: number[]): StepMetrics {
-  const final = y.at(-1) ?? 0;
+/**
+ * Step-response Metrics relative to the final value. Pass `finalValue` when it is known
+ * analytically (DC gain of a stable linear System); otherwise the last sample is used.
+ */
+export function stepMetrics(times: number[], y: number[], finalValue?: number): StepMetrics {
+  const final = finalValue ?? y.at(-1) ?? 0;
   let peak = 0;
   y.forEach((v, i) => {
     if ((final >= 0 ? v > y[peak]! : v < y[peak]!)) peak = i;
@@ -391,7 +394,8 @@ export function stepMetrics(times: number[], y: number[]): StepMetrics {
     y.forEach((v, i) => {
       if (Math.abs(v - final) > band) last = i;
     });
-    settling = last < 0 ? 0 : last + 1 < times.length ? times[last + 1]! : null;
+    // Only call it settled if the response then stays in the band for the last 10 % of the run.
+    settling = last < 0 ? 0 : last + 1 < times.length * 0.9 ? times[last + 1]! : null;
   }
   return {
     finalValue: final,
@@ -400,4 +404,22 @@ export function stepMetrics(times: number[], y: number[]): StepMetrics {
     settlingTimeS: settling,
     peakTimeS: times[peak]!,
   };
+}
+
+/**
+ * Exact step-response final value per output of a linear System, or null when it does not
+ * exist (unstable) or the System is not linear.
+ */
+export function linearFinalValues(sys: LoadedSystem, overrides: Record<string, Record<string, number>>, input: string): Record<string, number | null> | null {
+  let model: SystemModel;
+  try {
+    model = systemModel(sys, overrides);
+  } catch {
+    return null;
+  }
+  const inp = model.inputs.indexOf(input);
+  if (inp < 0) return null;
+  const stable = isStable(model, poles(model));
+  const dc = responseAt(model, inp, dcPoint(model));
+  return Object.fromEntries(model.outputs.map((o, i) => [o, stable && Number.isFinite(dc[i]![0]) ? dc[i]![0] : null]));
 }

@@ -1,6 +1,6 @@
-import type { TimeAnalysisRequest, TimeAnalysisResult } from "@modelviz/protocol";
+import type { StepMetrics, TimeAnalysisRequest, TimeAnalysisResult } from "@modelviz/protocol";
 import { ProtocolFailure } from "../errors.ts";
-import { stepMetrics } from "./lti.ts";
+import { linearFinalValues, stepMetrics } from "./lti.ts";
 import { stimulusFn } from "./stimulus.ts";
 import { SystemEngine, SystemError, loadSystem } from "./system.ts";
 
@@ -48,8 +48,22 @@ export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequ
     sampleRateHz: fs,
     times,
     series,
-    ...(req.kind === "step"
-      ? { metrics: Object.fromEntries(engine.outputs.map((name) => [name, stepMetrics(times, series[name]!)])) }
-      : {}),
+    ...(req.kind === "step" ? { metrics: metricsFor(engine.outputs, times, series, linearFinalValues(sys, req.parameters, input)) } : {}),
   };
+}
+
+/** For linear Systems the final value is exact; an unstable linear System has no step Metrics. */
+function metricsFor(
+  outputs: string[],
+  times: number[],
+  series: Record<string, number[]>,
+  finals: Record<string, number | null> | null,
+): Record<string, StepMetrics> {
+  const out: Record<string, StepMetrics> = {};
+  for (const name of outputs) {
+    const f = finals ? finals[name] : undefined;
+    if (f === null) continue;
+    out[name] = stepMetrics(times, series[name]!, f);
+  }
+  return out;
 }

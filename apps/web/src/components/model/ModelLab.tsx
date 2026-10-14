@@ -6,6 +6,7 @@ import { AnalysisPanel } from "./AnalysisPanel";
 import { DiscretizePanel } from "./DiscretizePanel";
 import { FileEditor } from "./FileEditor";
 import { LoopTemplateForm } from "./LoopTemplateForm";
+import { SweepPanel } from "./SweepPanel";
 
 export function ModelLab() {
   const { t } = useTranslation();
@@ -13,7 +14,7 @@ export function ModelLab() {
   const systems = useSession((s) => s.systems);
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [tool, setTool] = useState<"analysis" | "discretize">("analysis");
+  const [tool, setTool] = useState<"analysis" | "sweep" | "discretize">("analysis");
   const item = (path: string, label: string, bad: boolean, extra?: string) => (
     <li key={path}>
       <button
@@ -30,7 +31,7 @@ export function ModelLab() {
   const openSystem = systems.some((s) => s.path === open) ? open : null;
   const openBlock = blocks.find((b) => b.path === open);
   const canDiscretize = !!openBlock && !openBlock.error && openBlock.domain === "continuous" && !!openBlock.linear;
-  const activeTool = tool === "discretize" && canDiscretize ? "discretize" : "analysis";
+  const activeTool = tool === "discretize" && !canDiscretize ? "analysis" : tool;
   return (
     <div className="flex min-h-0 min-w-0 flex-1 gap-3">
       <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-auto rounded-lg border border-border bg-surface p-3">
@@ -64,12 +65,12 @@ export function ModelLab() {
         </section>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-        <div className="flex min-h-0 min-w-0 flex-1 rounded-lg border border-border bg-surface p-3">
+        <div className={`flex min-h-0 min-w-0 rounded-lg border border-border bg-surface p-3 ${open ? "flex-1" : "flex-none"}`}>
           {open ? <FileEditor key={open} path={open} /> : <p className="m-auto text-sm text-muted">{t("model.pick")}</p>}
         </div>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+        <div className={`flex min-h-0 min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3 ${open ? "flex-1" : "flex-[3]"}`}>
           <div role="tablist" aria-label={t("model.tools")} className="flex gap-1">
-            {(["analysis", "discretize"] as const).map((k) => (
+            {(["analysis", "sweep", "discretize"] as const).map((k) => (
               <button
                 key={k}
                 role="tab"
@@ -79,13 +80,16 @@ export function ModelLab() {
                 onClick={() => setTool(k)}
                 className={`rounded px-2 py-0.5 text-xs disabled:opacity-40 ${activeTool === k ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
               >
-                {t(k === "analysis" ? "analysis.title" : "disc.title")}
+                {t(k === "analysis" ? "analysis.title" : k === "sweep" ? "sweep.title" : "disc.title")}
               </button>
             ))}
           </div>
           {/* both stay mounted so their settings survive switching tools */}
           <div className={activeTool === "analysis" ? "flex min-h-0 min-w-0 flex-1" : "hidden"}>
             <AnalysisPanel system={openSystem} />
+          </div>
+          <div className={activeTool === "sweep" ? "flex min-h-0 min-w-0 flex-1" : "hidden"}>
+            <SweepPanel system={openSystem} />
           </div>
           {canDiscretize && (
             <div className={activeTool === "discretize" ? "flex min-h-0 min-w-0 flex-1" : "hidden"}>

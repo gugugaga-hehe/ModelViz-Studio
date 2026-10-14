@@ -21,6 +21,7 @@ import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate,
 import { loadSystem } from "./model/system.ts";
 import { compareDiscretization, discretizeBlock } from "./model/discretization-service.ts";
 import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts";
+import { type SweepControl, runSweep } from "./model/sweep.ts";
 import { runTimeAnalysis } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
@@ -59,6 +60,8 @@ export class Workbench {
   readonly bus = new SignalBus();
   private devices = new Map<string, DeviceRuntime>();
   private imports = new Map<string, CsvImport>();
+  /** Long-running Analyses by client-chosen id, for cancellation. */
+  private readonly jobs = new Map<string, SweepControl>();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
 
   broadcast<E extends EventName>(event: E, data: EventData<E>): void {
@@ -262,6 +265,34 @@ export class Workbench {
     },
     "analysis.frequency": async (p) => runFrequencyAnalysis(this.requireProject().path, Methods["analysis.frequency"].params.parse(p)),
     "analysis.poleZero": async (p) => runPoleZero(this.requireProject().path, Methods["analysis.poleZero"].params.parse(p)),
+    "analysis.sweep": async (p) => {
+      const req = Methods["analysis.sweep"].params.parse(p);
+      const project = this.requireProject();
+      if (this.jobs.has(req.id)) throw new ProtocolFailure("conflict", `An Analysis with id ${req.id} is already running`);
+      let last = 0;
+      const ctl: SweepControl = {
+        cancelled: false,
+        progress: (done, total) => {
+          const now = performance.now();
+          if (done === total || now - last > 100) {
+            last = now;
+            this.broadcast("analysis.progress", { id: req.id, done, total });
+          }
+        },
+      };
+      this.jobs.set(req.id, ctl);
+      try {
+        return await runSweep(project.path, req, ctl);
+      } finally {
+        this.jobs.delete(req.id);
+      }
+    },
+    "analysis.cancel": async (p) => {
+      const { id } = Methods["analysis.cancel"].params.parse(p);
+      const job = this.jobs.get(id);
+      if (job) job.cancelled = true;
+      return { cancelled: !!job };
+    },
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();

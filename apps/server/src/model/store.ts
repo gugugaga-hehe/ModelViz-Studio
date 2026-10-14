@@ -97,6 +97,7 @@ export async function listSystems(projectPath: string): Promise<SystemInfo[]> {
       inputs: s.file?.inputs ?? [],
       outputs: s.file ? Object.keys(s.file.outputs) : [],
       ports: s.file ? s.file.connections.map((c) => c.to).filter((p, i, a) => a.indexOf(p) === i) : [],
+      parameters: Object.fromEntries([...s.defs].map(([name, d]) => [name, d.parameters])),
       issues: s.issues,
     });
   }

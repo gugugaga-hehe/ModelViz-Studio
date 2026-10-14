@@ -8,6 +8,8 @@ import {
   FrequencyAnalysisRequest,
   FrequencyAnalysisResult,
   PoleZeroResult,
+  SweepRequest,
+  SweepResult,
   Stimulus,
   SystemInfo,
   TimeAnalysisRequest,
@@ -35,6 +37,7 @@ export const ErrorCode = z.enum([
   "already_exists",
   "invalid_project",
   "invalid_system",
+  "cancelled",
   "no_project",
   "internal",
 ]);
@@ -214,6 +217,16 @@ export const Methods = {
     }),
     result: PoleZeroResult,
   },
+  /** Parameter Sweep; runs in the background, reporting `analysis.progress`, until done or cancelled. */
+  "analysis.sweep": {
+    params: SweepRequest,
+    result: SweepResult,
+  },
+  /** Stops a running Analysis; its request fails with code "cancelled". */
+  "analysis.cancel": {
+    params: z.object({ id: z.string() }),
+    result: z.object({ cancelled: z.boolean() }),
+  },
   "source.stop": {
     params: z.object({ device: z.string() }),
     result: SourceState,
@@ -233,6 +246,7 @@ export const Events = {
   "recording.changed": RecordingInfo,
   /** A Device's Signals restart (e.g. a Log Replay seeked); clients should drop buffered samples. */
   "signals.reset": z.object({ device: z.string() }),
+  "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
 } as const;
 
 export type EventName = keyof typeof Events;

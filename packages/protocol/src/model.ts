@@ -126,6 +126,8 @@ export const SystemInfo = z.object({
   outputs: z.array(z.string()).default([]),
   /** Every Block input Port (`block.port`), e.g. for choosing where to break a loop. */
   ports: z.array(z.string()).default([]),
+  /** Block Parameters available for sweeps and overrides, per System Block. */
+  parameters: z.record(z.string(), z.record(z.string(), ParameterSpec)).default({}),
   issues: z.array(ValidationIssue),
 });
 export type SystemInfo = z.infer<typeof SystemInfo>;
@@ -279,3 +281,53 @@ export const PoleZeroResult = z.object({
   stable: z.boolean(),
 });
 export type PoleZeroResult = z.infer<typeof PoleZeroResult>;
+
+export const SweepAxis = z.object({
+  block: z.string(),
+  parameter: z.string(),
+  from: z.number(),
+  to: z.number(),
+  steps: z.number().int().min(2).max(200),
+  scale: z.enum(["linear", "log"]).default("linear"),
+});
+export type SweepAxis = z.infer<typeof SweepAxis>;
+
+export const StepMetricName = z.enum(["finalValue", "overshootPercent", "riseTimeS", "settlingTimeS", "peakTimeS"]);
+export const FrequencyMetricName = z.enum(["dcGainDb", "bandwidthHz", "peakGainDb", "peakHz"]);
+export const LoopMetricName = z.enum(["gainMarginDb", "phaseMarginDeg", "gainCrossoverHz", "phaseCrossoverHz"]);
+
+/** Which Metrics to record at each point of a Parameter Sweep. */
+export const SweepMetrics = z.object({
+  /** System output the step/frequency Metrics refer to. */
+  output: z.string(),
+  step: z.array(StepMetricName).default([]),
+  frequency: z.array(FrequencyMetricName).default([]),
+  /** Loop Metrics need `openLoopAt`. */
+  loop: z.array(LoopMetricName).default([]),
+  openLoopAt: z.string().optional(),
+  /** Step response length for step Metrics. */
+  durationS: z.number().positive().max(600).default(1),
+});
+export type SweepMetrics = z.infer<typeof SweepMetrics>;
+
+export const SweepRequest = z.object({
+  /** Client-chosen id, used for progress events and cancellation. */
+  id: z.string().min(1),
+  system: z.string(),
+  axes: z.array(SweepAxis).min(1).max(2),
+  metrics: SweepMetrics,
+  parameters: z.record(z.string(), z.record(z.string(), z.number())).default({}),
+});
+export type SweepRequest = z.infer<typeof SweepRequest>;
+
+export const SweepResult = z.object({
+  id: z.string(),
+  system: z.string(),
+  axes: z.array(SweepAxis.extend({ values: z.array(z.number()) })),
+  /**
+   * Metric name → values: a list for 1-D sweeps, rows indexed by the first axis for 2-D.
+   * `null` where the Metric is undefined (e.g. no crossover, unstable, simulation failed).
+   */
+  values: z.record(z.string(), z.union([z.array(z.number().nullable()), z.array(z.array(z.number().nullable()))])),
+});
+export type SweepResult = z.infer<typeof SweepResult>;
