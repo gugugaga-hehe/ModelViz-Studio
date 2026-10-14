@@ -17,6 +17,9 @@ import { ActiveSource, type SourceOptions } from "./active-source.ts";
 import type { DeviceLink, SignalTarget } from "./device-link.ts";
 import { type CsvTable, CsvReplaySource, csvInfo, importCsv, loadImports } from "./csv-import.ts";
 import { ProtocolFailure } from "./errors.ts";
+import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate, writeProjectFile } from "./model/store.ts";
+import { loadSystem } from "./model/system.ts";
+import { runTimeAnalysis } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
 import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
@@ -218,6 +221,39 @@ export class Workbench {
       const stored = (await listRecordings(project.path)).filter((r) => !active.has(r.id));
       return [...stored, ...active.values(), ...[...this.imports.values()].map((i) => csvInfo(i.table))];
     },
+    "files.list": async () => listFiles(this.requireProject().path),
+    "files.read": async (p) => {
+      const { path } = Methods["files.read"].params.parse(p);
+      return { path, content: await readProjectFile(this.requireProject().path, path) };
+    },
+    "files.write": async (p) => {
+      const { path, content } = Methods["files.write"].params.parse(p);
+      const project = this.requireProject();
+      await writeProjectFile(project.path, path, content);
+      // Frame Formats, Blocks and Systems shape the Signal list: reload like reopening the Project.
+      if (!this.devicesBusy()) await this.setProject(await openProject(project.path));
+      return { path };
+    },
+    "blocks.list": async () => listBlocks(this.requireProject().path),
+    "systems.list": async () => listSystems(this.requireProject().path),
+    "system.validate": async (p) => {
+      const { system } = Methods["system.validate"].params.parse(p);
+      return { issues: (await loadSystem(this.requireProject().path, system)).issues };
+    },
+    "system.fromLoopTemplate": async (p) => {
+      const { name, sampleRateHz, controller, plant, sensor } = Methods["system.fromLoopTemplate"].params.parse(p);
+      const project = this.requireProject();
+      const path = await writeLoopTemplate(project.path, name, sampleRateHz, controller, plant, sensor);
+      if (!this.devicesBusy()) await this.setProject(await openProject(project.path));
+      return (await listSystems(project.path)).find((s) => s.path === path)!;
+    },
+    "analysis.time": async (p) => {
+      const req = Methods["analysis.time"].params.parse(p);
+      const project = this.requireProject();
+      const result = await runTimeAnalysis(project.path, req);
+      this.publishSystemOutputs(result.system, result.times, result.series);
+      return result;
+    },
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
       const src = this.sourceOf(device);
@@ -226,6 +262,21 @@ export class Workbench {
       return src.state();
     },
   };
+
+  /** Whether any Source is running (reloading the Project would interrupt it). */
+  private devicesBusy(): boolean {
+    return [...this.devices.values(), ...this.imports.values()].some((d) => d.source?.active);
+  }
+
+  /** System outputs become Signals `system:<name>/out.<output>`, anchored at the current time. */
+  private publishSystemOutputs(systemPath: string, times: number[], series: Record<string, number[]>): void {
+    const name = systemPath.replace(/^.*\//, "").replace(/\.ya?ml$/, "");
+    const t0 = Date.now();
+    for (const [out, values] of Object.entries(series)) {
+      const handle = this.bus.handleOf(signalId(`system:${name}`, "out", out));
+      for (let i = 0; i < values.length; i++) this.bus.publish(handle, t0 + times[i]! * 1000, values[i]!);
+    }
+  }
 
   /** Current Source of a Device or CSV import (throws if neither exists). */
   private sourceOf(id: string): ActiveSource | CsvReplaySource | null {
@@ -349,6 +400,13 @@ export class Workbench {
         rt.signalMap.set(m.name, targets);
       }
       this.devices.set(config.id, rt);
+    }
+    for (const sys of await listSystems(opened.info.path)) {
+      for (const out of [...sys.inputs.slice(0, 1), ...sys.outputs]) {
+        const device = `system:${sys.name}`;
+        const id = signalId(device, "out", out);
+        signals.push({ id, device, message: "out", field: out, handle: this.bus.handleOf(id), timebase: "device" });
+      }
     }
     // Unreadable imports are skipped; a broken CSV must not prevent opening the Project.
     for (const table of (await loadImports(opened.info.path)).tables) {

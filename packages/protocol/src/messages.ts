@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProjectInfo, ProjectTemplate, TransportConfig } from "./project.ts";
+import { BlockInfo, SystemInfo, TimeAnalysisRequest, TimeAnalysisResult, ValidationIssue } from "./model.ts";
 import { DeviceInfo, LinkHealth, RecordingInfo, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
@@ -20,6 +21,7 @@ export const ErrorCode = z.enum([
   "conflict",
   "already_exists",
   "invalid_project",
+  "invalid_system",
   "no_project",
   "internal",
 ]);
@@ -129,6 +131,48 @@ export const Methods = {
       speed: z.number().positive().max(64).optional(),
     }),
     result: SourceState,
+  },
+  /** Text files of the Project that users edit (Frame Formats, dialects, Blocks, Systems). */
+  "files.list": {
+    params: z.object({}),
+    result: z.array(z.object({ path: z.string(), kind: z.enum(["frame-format", "dialect", "block", "system", "other"]) })),
+  },
+  "files.read": {
+    params: z.object({ path: z.string() }),
+    result: z.object({ path: z.string(), content: z.string() }),
+  },
+  "files.write": {
+    params: z.object({ path: z.string(), content: z.string() }),
+    result: z.object({ path: z.string() }),
+  },
+  "blocks.list": {
+    params: z.object({}),
+    result: z.array(BlockInfo),
+  },
+  "systems.list": {
+    params: z.object({}),
+    result: z.array(SystemInfo),
+  },
+  "system.validate": {
+    params: z.object({ system: z.string() }),
+    result: z.object({ issues: z.array(ValidationIssue) }),
+  },
+  /** Writes a new System built from the standard feedback Loop Template. */
+  "system.fromLoopTemplate": {
+    params: z.object({
+      name: z.string().regex(/^[A-Za-z][A-Za-z0-9_-]*$/),
+      sampleRateHz: z.number().positive(),
+      controller: z.string(),
+      plant: z.string(),
+      /** Optional sensor filter in the feedback path. */
+      sensor: z.string().optional(),
+    }),
+    result: SystemInfo,
+  },
+  /** Time-domain Analysis; System outputs are also published as Signals `system:<name>/out.<output>`. */
+  "analysis.time": {
+    params: TimeAnalysisRequest,
+    result: TimeAnalysisResult,
   },
   "source.stop": {
     params: z.object({ device: z.string() }),
