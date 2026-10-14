@@ -18,7 +18,7 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   now prints the states it saw, so a recurrence will say where it stuck.
 - Measured Frequency Response is slow (~15 s for the example loop with the loop broken): feedback
   loops are stepped per sample (ADR-0011) and continuous-only Systems run 20× oversampled.
-- Header nav overflows on narrow windows (pre-existing).
+- Header nav overflows on narrow windows (pre-existing): gugugaga-hehe/ModelViz-Studio#50.
 
 ## Setting up a new environment
 
