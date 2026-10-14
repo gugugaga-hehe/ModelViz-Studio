@@ -356,6 +356,11 @@ export const Events = {
   "recording.changed": RecordingInfo,
   /** A Device's Signals restart (e.g. a Log Replay seeked); clients should drop buffered samples. */
   "signals.reset": z.object({ device: z.string() }),
+  /**
+   * Sent to one client only: live samples the server skipped for it because it was not reading
+   * fast enough (its send buffer was full), counted per Signal since the last report.
+   */
+  "signals.dropped": z.object({ signals: z.array(z.object({ id: z.string(), samples: z.number().int().positive() })) }),
   "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
   "python.changed": PythonStatus,
   /** Text Python Blocks wrote to stdout/stderr (print, warnings, tracebacks), as it arrives. */

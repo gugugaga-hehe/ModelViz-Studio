@@ -397,5 +397,10 @@
     "unreadable": "無法還原此 Project 已儲存的 Layout。原檔保持不變，重設前 Panel 的變更不會儲存。",
     "reset": "重設 Layout",
     "backedUp": "舊的 Layout 已保留為 Project 資料夾中的 {{file}}。"
+  },
+  "display": {
+    "dropped_one": "畫面處理不及：略過了 {{count}} 筆即時樣本（Device 與 Recording 不受影響）。",
+    "dropped_other": "畫面處理不及：略過了 {{count}} 筆即時樣本（Device 與 Recording 不受影響）。",
+    "dismiss": "關閉"
   }
 }

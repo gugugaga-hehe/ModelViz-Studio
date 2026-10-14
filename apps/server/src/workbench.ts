@@ -64,7 +64,9 @@ type Handler = (params: unknown, ctx: RequestContext) => Promise<unknown>;
 export class Workbench {
   project: ProjectInfo | null = null;
   readonly clients = new Set<WebSocket>();
-  readonly bus = new SignalBus();
+  readonly bus = new SignalBus((ws, data) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "event", event: "signals.dropped", data } satisfies ServerMessage));
+  });
   private devices = new Map<string, DeviceRuntime>();
   private imports = new Map<string, CsvImport>();
   /** Python environment of the open Project. */

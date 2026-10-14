@@ -12,7 +12,7 @@ import { AudioLines, ChartLine, ChartScatter, RotateCcw, Rotate3d, Table, Triang
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
-import { client, useSession } from "../state/session";
+import { client, useDropped, useSession } from "../state/session";
 import { type AttitudeSettings, ATTITUDE_DEFAULTS, AttitudePanel } from "./panels/AttitudePanel";
 import { type SpectrumSettings, SpectrumPanel } from "./panels/SpectrumPanel";
 import { TablePanel } from "./panels/TablePanel";
@@ -139,6 +139,7 @@ export function Workspace() {
   const blocked = useRef(false);
   const [backup, setBackup] = useState<string | null>(null);
   const [saves, setSaves] = useState(0);
+  const dropped = useDropped();
 
   // restore the Project's layout (or start with one time plot)
   useEffect(() => {
@@ -248,6 +249,15 @@ export function Workspace() {
           <Button onClick={() => void resetLayout().catch((e: Error) => setProblem(e.message))}>
             <RotateCcw size={14} />
             {t("layout.reset")}
+          </Button>
+        </div>
+      )}
+      {dropped.samples > 0 && (
+        <div data-testid="display-dropped" className="flex items-center gap-2 text-xs text-warn">
+          <TriangleAlert size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1">{t("display.dropped", { count: dropped.samples })}</span>
+          <Button variant="subtle" size="inline" onClick={dropped.dismiss}>
+            {t("display.dismiss")}
           </Button>
         </div>
       )}
