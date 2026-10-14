@@ -107,7 +107,7 @@ function CsvImportForm({ onDone }: { onDone: () => void }) {
       </label>
       <label className="flex flex-col gap-1">
         {t("csv.name")}
-        <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
+        <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" patternHint={t("form.identifier")} />
       </label>
       <div className="flex gap-1">
         <label className="flex flex-[2] flex-col gap-1">

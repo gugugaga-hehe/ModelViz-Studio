@@ -397,5 +397,12 @@
     "unreadable": "The saved Layout of this Project could not be restored. It is kept unchanged, and Panel changes are not saved until you reset it.",
     "reset": "Reset Layout",
     "backedUp": "The old Layout was kept as {{file}} in the Project folder."
+  },
+  "form": {
+    "required": "This field is required.",
+    "invalid": "This value is not valid.",
+    "min": "Enter {{min}} or more.",
+    "max": "Enter {{max}} or less.",
+    "identifier": "Use letters, digits, _ and -, starting with a letter."
   }
 }
