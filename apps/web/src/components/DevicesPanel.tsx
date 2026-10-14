@@ -2,11 +2,13 @@ import { Cpu, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { LinkHealthView } from "./LinkHealthView";
 
 export function DevicesPanel() {
   const { t } = useTranslation();
   const devices = useSession((s) => s.devices);
   const sources = useSession((s) => s.sources);
+  const health = useSession((s) => s.health);
   const [error, setError] = useState<string | null>(null);
 
   async function run(fn: () => Promise<unknown>) {
@@ -38,6 +40,7 @@ export function DevicesPanel() {
                 {d.frameFormat}
               </div>
               {d.error && <p className="mt-1 text-xs text-danger">{d.error}</p>}
+              {health[d.id] && <LinkHealthView health={health[d.id]!} />}
               {d.virtual && !d.error && (
                 <button
                   className="mt-2 inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent"

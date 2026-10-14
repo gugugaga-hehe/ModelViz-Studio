@@ -34,18 +34,36 @@ const VIRTUAL_BENCH_DEVICES = `devices:
         BENCH_STATE:
           rateHz: 500
           fields:
-            time_us: { kind: ramp, start: 0, step: 2000 }
             setpoint: { kind: sine, freqHz: 0.5, amplitude: 1 }
             gyro_x: { kind: sine, freqHz: 2, amplitude: 0.8 }
             gyro_y: { kind: sine, freqHz: 3, amplitude: 0.5 }
             gyro_z: { kind: sine, freqHz: 5, amplitude: 0.3 }
             mode: { kind: constant, value: 1 }
+        BENCH_IMU_BATCH:
+          rateHz: 125
+          fields:
+            gyro_x: { kind: sine, freqHz: 7, amplitude: 1 }
+            gyro_y: { kind: sine, freqHz: 11, amplitude: 0.5 }
+            gyro_z: { kind: sine, freqHz: 13, amplitude: 0.25 }
 `;
 
 const VIRTUAL_BENCH_FILES: Record<string, string> = {
   "frame-formats/bench.yaml": `# Frame Format: how to talk to the bench Device.
 framing: mavlink2
 dialect: ../dialects/bench.xml
+messages:
+  HEARTBEAT:
+    nominalRateHz: 1
+  BENCH_STATE:
+    deviceTimestamp: { field: time_us, unit: us }
+    nominalRateHz: 500
+  # 8 gyro samples per frame at 1 kHz; element 0 is at time_us.
+  BENCH_IMU_BATCH:
+    deviceTimestamp: { field: time_us, unit: us }
+    nominalRateHz: 125
+    batch:
+      fields: [gyro_x, gyro_y, gyro_z]
+      sampleRateHz: 1000
 `,
   "dialects/bench.xml": `<?xml version="1.0"?>
 <!-- Example dialect for a bench Device. Replace with your firmware's dialect. -->
@@ -69,6 +87,13 @@ dialect: ../dialects/bench.xml
       <field type="float" name="gyro_y" units="rad/s">Gyro Y.</field>
       <field type="float" name="gyro_z" units="rad/s">Gyro Z.</field>
       <field type="uint8_t" name="mode">Controller mode.</field>
+    </message>
+    <message id="42001" name="BENCH_IMU_BATCH">
+      <description>High-rate gyro samples, batched 8 per frame.</description>
+      <field type="uint64_t" name="time_us" units="us">Device time of the first sample.</field>
+      <field type="float[8]" name="gyro_x" units="rad/s">Gyro X samples.</field>
+      <field type="float[8]" name="gyro_y" units="rad/s">Gyro Y samples.</field>
+      <field type="float[8]" name="gyro_z" units="rad/s">Gyro Z samples.</field>
     </message>
   </messages>
 </mavlink>

@@ -17,6 +17,8 @@ export interface ParserStats {
   unknownMessages: number;
   /** Bytes skipped while searching for a frame start. */
   discardedBytes: number;
+  /** Frames missing according to per-sender sequence numbers. */
+  sequenceGaps: number;
 }
 
 /**
@@ -24,8 +26,10 @@ export interface ParserStats {
  * Resynchronises on the next start byte after a bad frame.
  */
 export class Mavlink2Parser {
-  readonly stats: ParserStats = { frames: 0, crcErrors: 0, unknownMessages: 0, discardedBytes: 0 };
+  readonly stats: ParserStats = { frames: 0, crcErrors: 0, unknownMessages: 0, discardedBytes: 0, sequenceGaps: 0 };
   private buf = new Uint8Array(0);
+  /** Last sequence number seen per (sysid, compid). */
+  private readonly lastSeq = new Map<number, number>();
 
   constructor(private readonly dialect: Dialect) {}
 
@@ -63,7 +67,12 @@ export class Mavlink2Parser {
       }
       const payload = new Uint8Array(Math.max(def.payloadLength, len));
       payload.set(buf.subarray(i + HEADER_LENGTH, crcAt));
-      frames.push({ message: def, seq: buf[i + 4]!, sysid: buf[i + 5]!, compid: buf[i + 6]!, payload });
+      const seq = buf[i + 4]!;
+      const sender = (buf[i + 5]! << 8) | buf[i + 6]!;
+      const last = this.lastSeq.get(sender);
+      if (last !== undefined) this.stats.sequenceGaps += (seq - last - 1 + 256) % 256;
+      this.lastSeq.set(sender, seq);
+      frames.push({ message: def, seq, sysid: buf[i + 5]!, compid: buf[i + 6]!, payload });
       this.stats.frames++;
       i += total;
     }

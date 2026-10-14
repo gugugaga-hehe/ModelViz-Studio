@@ -1,5 +1,5 @@
 import { type ConnectionState, ModelVizClient } from "@modelviz/client";
-import { type DeviceInfo, PROTOCOL_PATH, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
+import { type DeviceInfo, type LinkHealth, PROTOCOL_PATH, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
 import { create } from "zustand";
 import { SignalStore } from "./signal-store";
 
@@ -19,6 +19,7 @@ interface SessionState {
   devices: DeviceInfo[];
   signals: SignalInfo[];
   sources: Record<string, SourceState>;
+  health: Record<string, LinkHealth>;
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -28,12 +29,13 @@ export const useSession = create<SessionState>(() => ({
   devices: [],
   signals: [],
   sources: {},
+  health: {},
 }));
 
 async function loadProjectState(project: ProjectInfo | null): Promise<void> {
   signalStore.clear();
   if (!project) {
-    useSession.setState({ project, devices: [], signals: [], sources: {} });
+    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {} });
     return;
   }
   const [devices, signals, sources] = await Promise.all([
@@ -46,6 +48,7 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     devices,
     signals,
     sources: Object.fromEntries(sources.map((s) => [s.device, s])),
+    health: {},
   });
 }
 
@@ -57,4 +60,5 @@ client.onState((connection) => {
 });
 client.on("project.changed", (project) => void loadProjectState(project).catch(() => {}));
 client.on("source.changed", (s) => useSession.setState((st) => ({ sources: { ...st.sources, [s.device]: s } })));
+client.on("link.health", (h) => useSession.setState((st) => ({ health: { ...st.health, [h.device]: h } })));
 client.connect();

@@ -41,7 +41,7 @@ export function App() {
         </main>
       ) : (
         <main className="flex min-h-0 flex-1 gap-3 p-3">
-          <aside className="w-56 shrink-0 overflow-auto rounded-lg border border-border bg-surface p-3">
+          <aside className="w-64 shrink-0 overflow-auto rounded-lg border border-border bg-surface p-3">
             <DevicesPanel />
           </aside>
           <TimePlotPanel />

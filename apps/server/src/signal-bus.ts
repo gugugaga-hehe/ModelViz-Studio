@@ -7,6 +7,7 @@ const FLUSH_INTERVAL_MS = 33;
 interface Pending {
   times: number[];
   values: number[];
+  hostTimes: number[];
 }
 
 /**
@@ -65,13 +66,14 @@ export class SignalBus {
     this.subscribers.delete(ws);
   }
 
-  /** Appends samples for one Signal; dropped immediately if nobody is subscribed. */
-  publish(handle: number, time: number, value: number): void {
+  /** Appends a sample for one Signal; dropped immediately if nobody is subscribed. */
+  publish(handle: number, time: number, value: number, hostTime: number | null = null): void {
     if (!this.hasSubscriber(handle)) return;
     let p = this.pending.get(handle);
-    if (!p) this.pending.set(handle, (p = { times: [], values: [] }));
+    if (!p) this.pending.set(handle, (p = { times: [], values: [], hostTimes: [] }));
     p.times.push(time);
     p.values.push(value);
+    if (hostTime !== null) p.hostTimes.push(hostTime);
   }
 
   private hasSubscriber(handle: number): boolean {
@@ -82,7 +84,8 @@ export class SignalBus {
   flush(): void {
     for (const [handle, p] of this.pending) {
       if (!p.times.length) continue;
-      const chunk = encodeSignalChunk(handle, p.times, p.values);
+      const host = p.hostTimes.length === p.times.length ? p.hostTimes : undefined;
+      const chunk = encodeSignalChunk(handle, p.times, p.values, host);
       for (const [ws, set] of this.subscribers) if (set.has(handle) && ws.readyState === ws.OPEN) ws.send(chunk);
     }
     this.pending.clear();
