@@ -205,7 +205,7 @@ class Block:
     r.series.y!.forEach((y, i) => expect(y).toBeCloseTo(2 * r.series.r![i]!, 12));
     await expect.poll(() => output).toContain("raw fd write");
     expect(output).toContain("loading");
-    expect(output).toContain("chunk of 1001");
+    expect(output).toContain("chunk of 1000");
   });
 
   it("stops a stuck Python Block when its Analysis is cancelled", async () => {

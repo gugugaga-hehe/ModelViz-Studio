@@ -342,7 +342,7 @@ export class Workbench {
       const project = this.requireProject();
       const signal = req.kind === "signal" && req.signal ? await this.recordedSignal(req.signal.recording, req.signal.signal) : null;
       const result = req.id
-        ? await this.job(req.id, (ctl) => runTimeAnalysis(project.path, req, this.pythonRuntime(), signal, ctl.signal))
+        ? await this.job(req.id, (ctl) => runTimeAnalysis(project.path, req, this.pythonRuntime(), signal, ctl))
         : await runTimeAnalysis(project.path, req, this.pythonRuntime(), signal);
       this.publishSystemOutputs(result.system, result.times, result.series);
       return result;

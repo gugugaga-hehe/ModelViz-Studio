@@ -3,7 +3,7 @@ import { ProtocolFailure } from "../errors.ts";
 import { NotLinearError, bode, evalPoint, frequencyMetrics, linearFinalValues, logspace, loopMetrics, responseAt, stepMetrics, systemModel } from "./lti.ts";
 import type { PythonHost, PythonRuntime } from "./python-host.ts";
 import { type LoadedSystem, SystemEngine, loadSystem } from "./system.ts";
-import { withPython } from "./time-analysis.ts";
+import { type AnalysisControl, checkSampleBudget, runChunked, withPython } from "./time-analysis.ts";
 
 /** Grid points along one axis. */
 export function axisValues(a: SweepAxis): number[] {
@@ -14,12 +14,7 @@ export function axisValues(a: SweepAxis): number[] {
   return Array.from({ length: a.steps }, (_, i) => a.from + ((a.to - a.from) * i) / (a.steps - 1));
 }
 
-export interface SweepControl {
-  cancelled: boolean;
-  progress(done: number, total: number): void;
-  /** Aborted on cancellation, to stop work that cannot poll `cancelled` (e.g. a Python host). */
-  signal?: AbortSignal;
-}
+export type SweepControl = AnalysisControl;
 
 const nextTick = () => new Promise<void>((r) => setImmediate(r));
 const finite = (v: number | null | undefined): number | null => (v === null || v === undefined || !Number.isFinite(v) ? null : v);
@@ -58,6 +53,9 @@ async function sweep(sys: LoadedSystem, req: SweepRequest, ctl: SweepControl, ho
   const flat: Record<string, (number | null)[]> = Object.fromEntries(names.map((n) => [n, []]));
   const fs = sys.file.sampleRateHz;
   const nyq = fs / 2;
+  if (m.step.length) checkSampleBudget(Math.round(m.durationS * fs) + 1, fs, m.durationS);
+  // within one point, only cancellation matters (progress counts points)
+  const pointCtl: AnalysisControl = { get cancelled() { return ctl.cancelled; }, progress: () => {} };
 
   for (let k = 0; k < total; k++) {
     if (ctl.cancelled) throw new ProtocolFailure("cancelled", "Parameter Sweep cancelled");
@@ -71,7 +69,7 @@ async function sweep(sys: LoadedSystem, req: SweepRequest, ctl: SweepControl, ho
       try {
         const engine = new SystemEngine(sys, overrides, host ? { python: host } : {});
         const count = Math.round(m.durationS * fs) + 1;
-        const out = await engine.run(count, (name) => (name === engine.inputs[0] ? 1 : 0));
+        const out = await runChunked(engine, count, (name) => (name === engine.inputs[0] ? 1 : 0), pointCtl);
         const times = Array.from({ length: count }, (_, i) => i / fs);
         const y = Array.from(out[engine.outputs.indexOf(m.output)]!);
         const finals = linearFinalValues(sys, overrides, engine.inputs[0]!);
