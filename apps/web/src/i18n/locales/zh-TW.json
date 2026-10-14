@@ -1,5 +1,7 @@
 {
-  "app": { "title": "ModelViz Studio" },
+  "app": {
+    "title": "ModelViz Studio"
+  },
   "connection": {
     "connecting": "正在連線到伺服器…",
     "connected": "已連線",
@@ -7,7 +9,9 @@
     "incompatible": "伺服器版本不相容：{{message}}",
     "closed": "已關閉"
   },
-  "language": { "label": "語言" },
+  "language": {
+    "label": "語言"
+  },
   "project": {
     "heading": "Project",
     "none": "尚未開啟 Project",
@@ -18,6 +22,24 @@
     "open": "開啟 Project",
     "mode.create": "新建",
     "mode.open": "開啟",
-    "error": "無法完成：{{message}}"
+    "error": "無法完成：{{message}}",
+    "template": "範本",
+    "templates": {
+      "virtual-bench": "Virtual bench（範例 Device）",
+      "empty": "空白"
+    },
+    "switch": "切換 Project"
+  },
+  "devices": {
+    "heading": "Device",
+    "none": "此 Project 沒有 Device",
+    "running": "執行中",
+    "startVirtual": "啟動 Virtual Device",
+    "stop": "停止"
+  },
+  "plot": {
+    "heading": "Signal",
+    "noSignals": "沒有 Signal — 請在 Project 中加入 Device",
+    "pickSignals": "選擇要繪製的 Signal"
   }
 }

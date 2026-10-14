@@ -57,3 +57,42 @@ export function waitForState(client: ModelVizClient, state: ModelVizClient["stat
     });
   });
 }
+
+/** Collects samples of the given Signal handles until `until` returns true or the timeout hits. */
+export function collectSamples(
+  client: ModelVizClient,
+  handles: number[],
+  until: (samples: Map<number, { times: number[]; values: number[] }>) => boolean,
+  timeoutMs = 5000,
+): Promise<Map<number, { times: number[]; values: number[] }>> {
+  const samples = new Map(handles.map((h) => [h, { times: [] as number[], values: [] as number[] }]));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      off();
+      reject(new Error(`Timed out collecting samples: ${[...samples].map(([h, s]) => `${h}=${s.values.length}`).join(" ")}`));
+    }, timeoutMs);
+    const off = client.onSignalChunk((chunk) => {
+      const s = samples.get(chunk.handle);
+      if (!s) return;
+      s.times.push(...chunk.times);
+      s.values.push(...chunk.values);
+      if (until(samples)) {
+        clearTimeout(timer);
+        off();
+        resolve(samples);
+      }
+    });
+  });
+}
+
+export async function benchProject(h: Awaited<ReturnType<typeof harness>>, client: ModelVizClient, name = "bench") {
+  const path = (await import("node:path")).join(h.dir, name);
+  await client.request("project.create", { path, name, template: "virtual-bench" });
+  const signals = await client.request("signals.list", {});
+  const byId = (id: string) => {
+    const s = signals.find((x) => x.id === id);
+    if (!s) throw new Error(`no Signal ${id}`);
+    return s;
+  };
+  return { path, signals, byId };
+}

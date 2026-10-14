@@ -1,9 +1,10 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { PROJECT_MANIFEST, PROJECT_SCHEMA_VERSION, ProjectManifest, type ProjectInfo } from "@modelviz/protocol";
+import { PROJECT_MANIFEST, PROJECT_SCHEMA_VERSION, ProjectManifest, type ProjectInfo, type ProjectTemplate } from "@modelviz/protocol";
 import { parse, stringify } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
+import { templateFiles, writeTemplate } from "./templates.ts";
 
 /** Recordings are binary and large; keep them out of version control by default. */
 const PROJECT_GITIGNORE = "recordings/\n";
@@ -23,7 +24,12 @@ async function exists(path: string): Promise<boolean> {
   );
 }
 
-export async function createProject(pathInput: string, name: string): Promise<ProjectInfo> {
+export interface OpenedProject {
+  info: ProjectInfo;
+  manifest: ProjectManifest;
+}
+
+export async function createProject(pathInput: string, name: string, template: ProjectTemplate): Promise<OpenedProject> {
   const path = resolveProjectPath(pathInput);
   if (await exists(path)) {
     const s = await stat(path);
@@ -32,13 +38,17 @@ export async function createProject(pathInput: string, name: string): Promise<Pr
     }
   }
   await mkdir(path, { recursive: true });
-  const manifest: ProjectManifest = { schemaVersion: PROJECT_SCHEMA_VERSION, name };
-  await writeFile(join(path, PROJECT_MANIFEST), stringify(manifest));
+  const { manifestExtra, files } = templateFiles(template);
+  await writeFile(
+    join(path, PROJECT_MANIFEST),
+    stringify({ schemaVersion: PROJECT_SCHEMA_VERSION, name }) + manifestExtra,
+  );
   await writeFile(join(path, ".gitignore"), PROJECT_GITIGNORE);
-  return { path, name };
+  await writeTemplate(path, files);
+  return openProject(path);
 }
 
-export async function openProject(pathInput: string): Promise<ProjectInfo> {
+export async function openProject(pathInput: string): Promise<OpenedProject> {
   const path = resolveProjectPath(pathInput);
   const manifestPath = join(path, PROJECT_MANIFEST);
   let text: string;
@@ -51,5 +61,8 @@ export async function openProject(pathInput: string): Promise<ProjectInfo> {
   if (!parsed.success) {
     throw new ProtocolFailure("invalid_project", `Invalid ${PROJECT_MANIFEST}: ${parsed.error.message}`);
   }
-  return { path, name: parsed.data.name };
+  const ids = parsed.data.devices.map((d) => d.id);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup) throw new ProtocolFailure("invalid_project", `Device id "${dup}" is used more than once`);
+  return { info: { path, name: parsed.data.name }, manifest: parsed.data };
 }

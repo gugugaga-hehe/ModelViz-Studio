@@ -1,21 +1,11 @@
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
-import {
-  ClientMessage,
-  type EventData,
-  type EventName,
-  type MethodName,
-  Methods,
-  PROTOCOL_PATH,
-  PROTOCOL_VERSION,
-  type ProjectInfo,
-  type ServerMessage,
-} from "@modelviz/protocol";
+import { ClientMessage, type MethodName, PROTOCOL_PATH, PROTOCOL_VERSION, type ServerMessage } from "@modelviz/protocol";
 import { WebSocket, WebSocketServer } from "ws";
 import { ProtocolFailure } from "./errors.ts";
-import { createProject, openProject } from "./project-store.ts";
 import { createStaticHandler } from "./static.ts";
+import { Workbench } from "./workbench.ts";
 
 export const SERVER_VERSION = "0.0.0";
 
@@ -43,37 +33,6 @@ export interface RunningServer {
 export function isLoopbackAddress(address: string | undefined): boolean {
   if (!address) return false;
   return address === "::1" || address.startsWith("127.") || address.startsWith("::ffff:127.");
-}
-
-type Handler = (params: unknown) => Promise<unknown>;
-
-/** State shared by every client connection: the server is single-user, so one open Project. */
-class Workbench {
-  project: ProjectInfo | null = null;
-  readonly clients = new Set<WebSocket>();
-
-  broadcast<E extends EventName>(event: E, data: EventData<E>): void {
-    const text = JSON.stringify({ type: "event", event, data } satisfies ServerMessage);
-    for (const ws of this.clients) if (ws.readyState === WebSocket.OPEN) ws.send(text);
-  }
-
-  readonly handlers: Record<MethodName, Handler> = {
-    "project.create": async (p) => {
-      const { path, name } = Methods["project.create"].params.parse(p);
-      return this.setProject(await createProject(path, name));
-    },
-    "project.open": async (p) => {
-      const { path } = Methods["project.open"].params.parse(p);
-      return this.setProject(await openProject(path));
-    },
-    "project.current": async () => this.project,
-  };
-
-  private setProject(project: ProjectInfo): ProjectInfo {
-    this.project = project;
-    this.broadcast("project.changed", project);
-    return project;
-  }
 }
 
 function send(ws: WebSocket, msg: ServerMessage): void {
@@ -120,7 +79,7 @@ function handleConnection(ws: WebSocket, bench: Workbench): void {
       return;
     }
     try {
-      send(ws, { type: "response", id: msg.id, result: await handler(msg.params) });
+      send(ws, { type: "response", id: msg.id, result: await handler(msg.params, { ws }) });
     } catch (e) {
       const error =
         e instanceof ProtocolFailure
@@ -131,7 +90,7 @@ function handleConnection(ws: WebSocket, bench: Workbench): void {
       send(ws, { type: "response", id: msg.id, error });
     }
   });
-  ws.on("close", () => bench.clients.delete(ws));
+  ws.on("close", () => bench.removeClient(ws));
 }
 
 export async function startServer(options: ServerOptions = {}): Promise<RunningServer> {
@@ -177,6 +136,7 @@ export async function startServer(options: ServerOptions = {}): Promise<RunningS
     wsUrl: `ws://${urlHost}:${port}${PROTOCOL_PATH}`,
     close: () =>
       new Promise<void>((resolve) => {
+        bench.close();
         for (const ws of wss.clients) ws.terminate();
         wss.close();
         http.close(() => resolve());

@@ -1,5 +1,7 @@
 {
-  "app": { "title": "ModelViz Studio" },
+  "app": {
+    "title": "ModelViz Studio"
+  },
   "connection": {
     "connecting": "Connecting to server…",
     "connected": "Connected",
@@ -7,7 +9,9 @@
     "incompatible": "Incompatible server: {{message}}",
     "closed": "Closed"
   },
-  "language": { "label": "Language" },
+  "language": {
+    "label": "Language"
+  },
   "project": {
     "heading": "Project",
     "none": "No Project open",
@@ -18,6 +22,24 @@
     "open": "Open Project",
     "mode.create": "New",
     "mode.open": "Open",
-    "error": "Could not complete: {{message}}"
+    "error": "Could not complete: {{message}}",
+    "template": "Template",
+    "templates": {
+      "virtual-bench": "Virtual bench (example Device)",
+      "empty": "Empty"
+    },
+    "switch": "Switch Project"
+  },
+  "devices": {
+    "heading": "Devices",
+    "none": "No Devices in this Project",
+    "running": "running",
+    "startVirtual": "Start Virtual Device",
+    "stop": "Stop"
+  },
+  "plot": {
+    "heading": "Signals",
+    "noSignals": "No Signals — add a Device to the Project",
+    "pickSignals": "Select Signals to plot"
   }
 }

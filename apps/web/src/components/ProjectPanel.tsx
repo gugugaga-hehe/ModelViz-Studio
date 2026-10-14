@@ -1,4 +1,5 @@
 import { RequestError } from "@modelviz/client";
+import type { ProjectTemplate } from "@modelviz/protocol";
 import { FolderOpen, FolderPlus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,13 +7,14 @@ import { client, useSession } from "../state/session";
 
 type Mode = "create" | "open";
 
-export function ProjectPanel() {
+export function ProjectPanel({ onDone }: { onDone?: () => void }) {
   const { t } = useTranslation();
   const project = useSession((s) => s.project);
   const connected = useSession((s) => s.connection === "connected");
   const [mode, setMode] = useState<Mode>("open");
   const [path, setPath] = useState("");
   const [name, setName] = useState("");
+  const [template, setTemplate] = useState<ProjectTemplate>("virtual-bench");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,8 +23,9 @@ export function ProjectPanel() {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "create") await client.request("project.create", { path, name });
+      if (mode === "create") await client.request("project.create", { path, name, template });
       else await client.request("project.open", { path });
+      onDone?.();
     } catch (err) {
       setError(err instanceof RequestError || err instanceof Error ? err.message : String(err));
     } finally {
@@ -71,6 +74,15 @@ export function ProjectPanel() {
           <label className="flex flex-col gap-1 text-sm">
             {t("project.name")}
             <input className={input} value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+        )}
+        {mode === "create" && (
+          <label className="flex flex-col gap-1 text-sm">
+            {t("project.template")}
+            <select className={input} value={template} onChange={(e) => setTemplate(e.target.value as ProjectTemplate)}>
+              <option value="virtual-bench">{t("project.templates.virtual-bench")}</option>
+              <option value="empty">{t("project.templates.empty")}</option>
+            </select>
           </label>
         )}
         <button

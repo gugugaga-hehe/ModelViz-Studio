@@ -7,6 +7,8 @@ import {
   type ProtocolError,
   PROTOCOL_VERSION,
   ServerMessage,
+  type SignalChunk,
+  decodeSignalChunk,
 } from "@modelviz/protocol";
 
 /**
@@ -49,6 +51,7 @@ export class ModelVizClient {
   private readonly pending = new Map<number, Pending>();
   private readonly stateListeners = new Set<(s: ConnectionState) => void>();
   private readonly eventListeners = new Map<string, Set<(data: unknown) => void>>();
+  private readonly chunkListeners = new Set<(chunk: SignalChunk) => void>();
   private reconnectDelay: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -81,6 +84,7 @@ export class ModelVizClient {
     ws.onopen = () => ws.send(JSON.stringify({ type: "hello", protocolVersion: this.opts.protocolVersion }));
     ws.onmessage = (ev) => {
       if (typeof ev.data === "string") this.handleText(ev.data);
+      else if (ev.data instanceof ArrayBuffer) this.handleBinary(ev.data);
     };
     ws.onclose = () => this.handleClose(ws);
     ws.onerror = () => {
@@ -137,6 +141,18 @@ export class ModelVizClient {
     const l = listener as (data: unknown) => void;
     set.add(l);
     return () => set.delete(l);
+  }
+
+  /** Receives every binary Signal chunk for Signals this client subscribed to. */
+  onSignalChunk(listener: (chunk: SignalChunk) => void): () => void {
+    this.chunkListeners.add(listener);
+    return () => this.chunkListeners.delete(listener);
+  }
+
+  private handleBinary(data: ArrayBuffer): void {
+    const chunk = decodeSignalChunk(data);
+    if (!chunk) return;
+    for (const l of this.chunkListeners) l(chunk);
   }
 
   private handleText(text: string): void {
