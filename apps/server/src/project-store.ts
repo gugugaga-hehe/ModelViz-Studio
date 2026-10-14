@@ -2,12 +2,12 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { PROJECT_MANIFEST, PROJECT_SCHEMA_VERSION, ProjectManifest, type ProjectInfo, type ProjectTemplate } from "@modelviz/protocol";
-import { parse, stringify } from "yaml";
+import { type Document, parse, parseDocument, stringify } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
 import { templateFiles, writeTemplate } from "./templates.ts";
 
-/** Recordings are binary and large; keep them out of version control by default. */
-const PROJECT_GITIGNORE = "recordings/\n";
+/** Recordings are binary and large, and the Python environment is rebuilt from its lock file. */
+export const PROJECT_GITIGNORE = "recordings/\n.venv/\n";
 
 function resolveProjectPath(input: string): string {
   const expanded = input === "~" || input.startsWith("~/") ? join(homedir(), input.slice(1)) : input;
@@ -65,4 +65,12 @@ export async function openProject(pathInput: string): Promise<OpenedProject> {
   const dup = ids.find((id, i) => ids.indexOf(id) !== i);
   if (dup) throw new ProtocolFailure("invalid_project", `Device id "${dup}" is used more than once`);
   return { info: { path, name: parsed.data.name }, manifest: parsed.data };
+}
+
+/** Edits project.yaml in place, preserving comments and formatting elsewhere. */
+export async function updateManifest(projectPath: string, edit: (doc: Document) => void): Promise<void> {
+  const path = join(projectPath, PROJECT_MANIFEST);
+  const doc = parseDocument(await readFile(path, "utf8"));
+  edit(doc);
+  await writeFile(path, doc.toString());
 }

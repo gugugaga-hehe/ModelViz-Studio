@@ -110,10 +110,12 @@ describe("Log Replay", () => {
     const { byId } = await benchProject(h, c);
     const sp = byId("bench/HEARTBEAT.type");
     const gx = byId("bench/BENCH_STATE.setpoint");
-    await c.request("signals.subscribe", { ids: [gx.id, sp.id] });
     const info = await recordBench(c, 800);
+    // subscribe only now, so no live sample from the recording run can arrive late
+    await c.request("signals.subscribe", { ids: [gx.id, sp.id] });
 
     const replayed = collectSamples(c, [gx.handle], (m) => m.get(gx.handle)!.values.length >= 300, 5000);
+    const ended = waitForSource(c, (s) => s.replay?.playing === false && s.replay.positionMs === s.replay.durationMs, 8000);
     const t0 = Date.now();
     const st = await c.request("source.startReplay", { device: "bench", recording: "run1" });
     expect(st).toMatchObject({ kind: "replay", replay: { recording: "run1", playing: true, speed: 1 } });
@@ -123,9 +125,11 @@ describe("Log Replay", () => {
       expect(t).toBeGreaterThanOrEqual(info.startedAt);
       expect(t).toBeLessThanOrEqual(info.startedAt + info.durationMs);
     }
-    // plays in real time: 300 samples at 500 Hz ≈ 0.6 s
-    expect(Date.now() - t0).toBeGreaterThan(400);
-    await waitForSource(c, (s) => s.replay?.playing === false && s.replay.positionMs === s.replay.durationMs, 5000);
+    // plays with the original timing: wall-clock time ≥ the span of the replayed Host Timestamps
+    const span = r.hostTimes.at(-1)! - r.hostTimes[0]!;
+    expect(span).toBeGreaterThan(100);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(span - 50);
+    await ended;
   });
 
   it("pauses, seeks and changes speed", async () => {

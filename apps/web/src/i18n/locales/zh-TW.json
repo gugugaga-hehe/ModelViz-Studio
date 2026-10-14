@@ -237,5 +237,21 @@
       "gainCrossoverHz": "增益交越頻率 [Hz]",
       "phaseCrossoverHz": "相位交越頻率 [Hz]"
     }
+  },
+  "python": {
+    "state": {
+      "absent": "尚未設定",
+      "preparing": "準備中",
+      "ready": "就緒",
+      "failed": "失敗"
+    },
+    "retry": "重試",
+    "packages_one": "{{count}} 個鎖定套件",
+    "packages_other": "{{count}} 個鎖定套件",
+    "dependencies": "依賴套件（每行一個）",
+    "version": "Python 版本（選填）",
+    "apply": "套用",
+    "setUp": "設定 Python 環境…",
+    "edit": "編輯依賴套件…"
   }
 }

@@ -24,7 +24,8 @@ import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts
 import { type SweepControl, runSweep } from "./model/sweep.ts";
 import { runTimeAnalysis } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
-import { type OpenedProject, createProject, openProject } from "./project-store.ts";
+import { type OpenedProject, createProject, openProject, updateManifest } from "./project-store.ts";
+import { PythonEnvironment } from "./python-env.ts";
 import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
 import { SignalBus } from "./signal-bus.ts";
 import { listSerialPorts } from "./transports.ts";
@@ -60,6 +61,8 @@ export class Workbench {
   readonly bus = new SignalBus();
   private devices = new Map<string, DeviceRuntime>();
   private imports = new Map<string, CsvImport>();
+  /** Python environment of the open Project. */
+  private python: PythonEnvironment | null = null;
   /** Long-running Analyses by client-chosen id, for cancellation. */
   private readonly jobs = new Map<string, SweepControl>();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
@@ -300,6 +303,22 @@ export class Workbench {
       this.publishSystemOutputs(result.system, result.times, result.series);
       return result;
     },
+    "python.status": async () => {
+      this.requireProject();
+      return this.python!.current;
+    },
+    "python.configure": async (p) => {
+      const config = Methods["python.configure"].params.parse(p);
+      const project = this.requireProject();
+      await updateManifest(project.path, (doc) => doc.set("python", { ...(config.version ? { version: config.version } : {}), dependencies: config.dependencies }));
+      void this.python!.sync(config);
+      return this.python!.current;
+    },
+    "python.sync": async () => {
+      this.requireProject();
+      void this.python!.sync();
+      return this.python!.current;
+    },
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
       const src = this.sourceOf(device);
@@ -461,6 +480,11 @@ export class Workbench {
       signals.push(...this.importSignals(table));
     }
     this.bus.setSignals(signals);
+    // Reopening the same Project keeps its environment manager, so syncs never overlap.
+    if (this.python?.projectPath !== opened.info.path) {
+      this.python = new PythonEnvironment(opened.info.path, opened.manifest.python, (st) => this.broadcast("python.changed", st));
+    }
+    void this.python.sync(opened.manifest.python);
     this.project = opened.info;
     this.broadcast("project.changed", opened.info);
     return opened.info;
