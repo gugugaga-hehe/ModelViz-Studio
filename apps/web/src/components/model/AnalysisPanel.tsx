@@ -5,12 +5,9 @@ import { useTranslation } from "react-i18next";
 import { client, useProgress, useSession } from "../../state/session";
 import { MetricsTable } from "./MetricsTable";
 import { PoleZeroPlot } from "./PoleZeroPlot";
+import { FOREGROUND_COLOR, REFERENCE_COLOR, seriesColor } from "../plot-theme";
 import { type Series, SeriesPlot } from "./SeriesPlot";
 
-/** Foreground colour of the current theme (canvas cannot read CSS variables). */
-const fg = () => getComputedStyle(document.documentElement).getPropertyValue("--mv-fg").trim() || "#111827";
-
-const PALETTE = ["#64748b", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"];
 type Kind = "step" | "impulse" | "stimulus" | "signal" | "bode" | "polezero";
 type StimKind = "sine" | "chirp" | "sineSweep";
 type Result =
@@ -254,10 +251,11 @@ function TimeResult({ result }: { result: TimeAnalysisResult }) {
   const { t } = useTranslation();
   const series = useMemo(
     () =>
-      Object.keys(result.series).map((n, i) => ({
+      // the input in the reference colour; outputs in the same colours as in Bode plots
+      Object.keys(result.series).map((n) => ({
         label: n,
         values: result.series[n]!,
-        color: PALETTE[i % PALETTE.length]!,
+        color: n === result.input ? REFERENCE_COLOR : seriesColor(Object.keys(result.series).filter((k) => k !== result.input).indexOf(n)),
         dashed: n === result.input,
       })),
     [result],
@@ -291,8 +289,8 @@ function BodeResult({ result }: { result: FrequencyAnalysisResult }) {
   const { t } = useTranslation();
   const names = Object.keys(result.responses);
   const build = (pick: "magnitudeDb" | "phaseDeg"): Series[] => {
-    const s: Series[] = names.map((n, i) => ({ label: n, values: result.responses[n]![pick], color: PALETTE[(i + 1) % PALETTE.length]! }));
-    if (result.loop) s.push({ label: `L @ ${result.loop.at}`, values: result.loop[pick], color: fg(), dashed: true });
+    const s: Series[] = names.map((n, i) => ({ label: n, values: result.responses[n]![pick], color: seriesColor(i) }));
+    if (result.loop) s.push({ label: `L @ ${result.loop.at}`, values: result.loop[pick], color: FOREGROUND_COLOR, dashed: true });
     return s;
   };
   const mag = useMemo(() => build("magnitudeDb"), [result]);

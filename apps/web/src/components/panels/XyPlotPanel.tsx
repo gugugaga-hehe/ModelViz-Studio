@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { signalStore } from "../../state/session";
 import { niceTicks, pairsSince } from "../plot-data";
+import { resolveColor, seriesColor, usePlotTheme } from "../plot-theme";
 import { useRetained } from "../TimePlotPanel";
 import { SignalSelect, useSignalsById } from "./SignalPicker";
 
@@ -43,16 +44,11 @@ function label(s: SignalInfo): string {
 function XyCanvas({ x, y }: { x: SignalInfo; y: SignalInfo }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [points, setPoints] = useState(0);
+  const theme = usePlotTheme();
 
   useEffect(() => {
     const el = canvas.current!;
-    const css = getComputedStyle(document.documentElement);
-    const colors = {
-      fg: css.getPropertyValue("--mv-fg").trim(),
-      muted: css.getPropertyValue("--mv-muted").trim(),
-      grid: css.getPropertyValue("--mv-border").trim(),
-      line: css.getPropertyValue("--mv-accent").trim(),
-    };
+    const colors = { fg: theme.fg, muted: theme.axis, grid: theme.grid, line: resolveColor(seriesColor(0)) };
     let raf = 0;
     let last = 0;
     let lastReceived = -1;
@@ -75,7 +71,7 @@ function XyCanvas({ x, y }: { x: SignalInfo; y: SignalInfo }) {
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [x, y]);
+  }, [x, y, theme]);
 
   return (
     <div className="relative min-h-40 min-w-0 flex-1" data-testid="xy-plot" data-points={points}>
