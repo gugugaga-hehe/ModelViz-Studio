@@ -8,6 +8,7 @@ import { FileEditor } from "./FileEditor";
 import { LoopTemplateForm } from "./LoopTemplateForm";
 import { PythonPanel } from "./PythonPanel";
 import { SweepPanel } from "./SweepPanel";
+import { Button } from "../ui/controls";
 
 export function ModelLab() {
   const { t } = useTranslation();
@@ -18,15 +19,17 @@ export function ModelLab() {
   const [tool, setTool] = useState<"analysis" | "sweep" | "discretize">("analysis");
   const item = (path: string, label: string, bad: boolean, extra?: string) => (
     <li key={path}>
-      <button
+      <Button
         onClick={() => setOpen(path)}
         aria-current={open === path}
-        className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-xs ${open === path ? "bg-accent/15" : "hover:bg-bg"}`}
+        variant="item"
+        pressed={open === path}
+        className="w-full justify-start text-left"
       >
         <span className="truncate">{label}</span>
         {extra && <span className="text-muted">{extra}</span>}
         {bad && <span className="ml-auto text-danger">⚠</span>}
-      </button>
+      </Button>
     </li>
   );
   const openSystem = systems.some((s) => s.path === open) ? open : null;
@@ -55,10 +58,10 @@ export function ModelLab() {
             <h2 id="systems-heading" className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted">
               <Network size={12} /> {t("model.systems")}
             </h2>
-            <button onClick={() => setCreating((c) => !c)} className="ml-auto inline-flex items-center gap-0.5 text-xs text-muted hover:text-fg">
+            <Button onClick={() => setCreating((c) => !c)} variant="subtle" size="inline" className="ml-auto text-xs">
               <Plus size={12} />
               {t("loop.new")}
-            </button>
+            </Button>
           </div>
           {creating && (
             <LoopTemplateForm
@@ -82,17 +85,19 @@ export function ModelLab() {
         <div className={`flex min-h-0 min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3 ${open ? "flex-1" : "flex-[3]"}`}>
           <div role="tablist" aria-label={t("model.tools")} className="flex gap-1">
             {(["analysis", "sweep", "discretize"] as const).map((k) => (
-              <button
+              <Button
                 key={k}
                 role="tab"
                 aria-selected={activeTool === k}
                 disabled={k === "discretize" && !canDiscretize}
                 title={k === "discretize" && !canDiscretize ? t("disc.needsBlock") : undefined}
                 onClick={() => setTool(k)}
-                className={`rounded px-2 py-0.5 text-xs disabled:opacity-40 ${activeTool === k ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
+                variant="toggle"
+                pressed={activeTool === k}
+                size="xs"
               >
                 {t(k === "analysis" ? "analysis.title" : k === "sweep" ? "sweep.title" : "disc.title")}
-              </button>
+              </Button>
             ))}
           </div>
           {/* both stay mounted so their settings survive switching tools */}

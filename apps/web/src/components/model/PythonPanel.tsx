@@ -2,6 +2,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, usePythonOutput, useSession } from "../../state/session";
+import { Button, Input, Textarea } from "../ui/controls";
 
 /** Status and declaration of the Project's Python environment (ADR-0005). */
 export function PythonPanel() {
@@ -50,9 +51,9 @@ export function PythonPanel() {
           <p role="alert" className="flex-1 text-danger">
             {status?.error}
           </p>
-          <button onClick={() => void client.request("python.sync", {})} aria-label={t("python.retry")} className="rounded border border-border p-1">
+          <Button onClick={() => void client.request("python.sync", {})} aria-label={t("python.retry")} size="icon">
             <RefreshCw size={12} />
-          </button>
+          </Button>
         </div>
       )}
       {state === "ready" && (
@@ -64,18 +65,18 @@ export function PythonPanel() {
         <details className="flex flex-col gap-1" data-testid="python-output">
           <summary className="cursor-pointer text-muted hover:text-fg">{t("python.output")}</summary>
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-bg p-1 font-mono">{output.text}</pre>
-          <button onClick={output.clear} className="self-start text-muted hover:text-fg">
+          <Button onClick={output.clear} variant="subtle" size="inline" className="self-start">
             {t("python.clearOutput")}
-          </button>
+          </Button>
         </details>
       )}
       {editing ? (
         <div className="flex flex-col gap-1">
           <label className="flex flex-col gap-1">
             {t("python.dependencies")}
-            <textarea
+            <Textarea
               aria-label={t("python.dependencies")}
-              className="h-20 rounded border border-border bg-bg p-1 font-mono"
+              className="h-20 font-mono"
               value={deps}
               onChange={(e) => setDeps(e.target.value)}
               placeholder={"numpy\nscipy>=1.11"}
@@ -83,15 +84,15 @@ export function PythonPanel() {
           </label>
           <label className="flex flex-col gap-1">
             {t("python.version")}
-            <input aria-label={t("python.version")} className="rounded border border-border bg-bg px-1 py-0.5" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="3.12" />
+            <Input aria-label={t("python.version")} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="3.12" />
           </label>
           <div className="flex gap-1">
-            <button onClick={() => void save()} className="flex-1 rounded bg-accent px-2 py-1 font-medium text-white">
+            <Button onClick={() => void save()} variant="primary" className="flex-1">
               {t("python.apply")}
-            </button>
-            <button onClick={() => setEditing(false)} className="rounded border border-border px-2 py-1">
+            </Button>
+            <Button onClick={() => setEditing(false)} >
               {t("connect.cancel")}
-            </button>
+            </Button>
           </div>
           {error && (
             <p role="alert" className="text-danger">
@@ -100,9 +101,9 @@ export function PythonPanel() {
           )}
         </div>
       ) : (
-        <button onClick={() => setEditing(true)} className="self-start text-muted hover:text-fg">
+        <Button onClick={() => setEditing(true)} variant="subtle" size="inline" className="self-start">
           {t(state === "absent" ? "python.setUp" : "python.edit")}
-        </button>
+        </Button>
       )}
     </section>
   );

@@ -4,6 +4,7 @@ import { FolderOpen, FolderPlus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { Button, Input, Select } from "./ui/controls";
 
 type Mode = "create" | "open";
 
@@ -33,7 +34,6 @@ export function ProjectPanel({ onDone }: { onDone?: () => void }) {
     }
   }
 
-  const input = "w-full rounded border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent";
 
   return (
     <section className="w-full max-w-xl rounded-lg border border-border bg-surface p-5" aria-labelledby="project-heading">
@@ -53,46 +53,50 @@ export function ProjectPanel({ onDone }: { onDone?: () => void }) {
 
       <div className="mb-3 flex gap-1" role="tablist">
         {(["open", "create"] as const).map((m) => (
-          <button
+          <Button
             key={m}
             role="tab"
             aria-selected={mode === m}
             onClick={() => setMode(m)}
-            className={`rounded px-3 py-1 text-sm ${mode === m ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
+            variant="toggle"
+            pressed={mode === m}
+            size="md"
+            className="text-sm"
           >
             {t(`project.mode.${m}`)}
-          </button>
+          </Button>
         ))}
       </div>
 
       <form onSubmit={submit} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
           {t("project.path")}
-          <input className={input} value={path} onChange={(e) => setPath(e.target.value)} required placeholder="/home/me/projects/bench" />
+          <Input size="lg" className="w-full" value={path} onChange={(e) => setPath(e.target.value)} required placeholder="/home/me/projects/bench" />
         </label>
         {mode === "create" && (
           <label className="flex flex-col gap-1 text-sm">
             {t("project.name")}
-            <input className={input} value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input size="lg" className="w-full" value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
         )}
         {mode === "create" && (
           <label className="flex flex-col gap-1 text-sm">
             {t("project.template")}
-            <select className={input} value={template} onChange={(e) => setTemplate(e.target.value as ProjectTemplate)}>
+            <Select size="lg" className="w-full" value={template} onChange={(e) => setTemplate(e.target.value as ProjectTemplate)}>
               <option value="virtual-bench">{t("project.templates.virtual-bench")}</option>
               <option value="empty">{t("project.templates.empty")}</option>
-            </select>
+            </Select>
           </label>
         )}
-        <button
+        <Button
           type="submit"
           disabled={!connected || busy}
-          className="inline-flex items-center justify-center gap-2 rounded bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          variant="primary"
+          size="lg"
         >
           {mode === "create" ? <FolderPlus size={16} /> : <FolderOpen size={16} />}
           {t(mode === "create" ? "project.create" : "project.open")}
-        </button>
+        </Button>
         {error && (
           <p role="alert" className="text-sm text-danger">
             {t("project.error", { message: error })}

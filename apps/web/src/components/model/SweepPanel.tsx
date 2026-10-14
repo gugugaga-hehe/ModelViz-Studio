@@ -6,6 +6,7 @@ import { client, useProgress, useSession } from "../../state/session";
 import { seriesColor } from "../plot-theme";
 import { Heatmap } from "./Heatmap";
 import { SeriesPlot } from "./SeriesPlot";
+import { Button, Input, Select } from "../ui/controls";
 
 const METRICS = {
   step: ["overshootPercent", "riseTimeS", "settlingTimeS", "peakTimeS", "finalValue"],
@@ -103,28 +104,27 @@ export function SweepPanel({ system }: { system: string | null }) {
     }
   }
 
-  const input = "rounded border border-border bg-surface px-2 py-1 text-xs";
   const axisRow = (a: AxisState, set: (a: AxisState) => void, label: string) => (
     <fieldset className="flex flex-wrap items-end gap-2" aria-label={label}>
       <legend className="sr-only">{label}</legend>
       <span className="w-12 pb-1 text-muted">{label}</span>
-      <select aria-label={`${label} ${t("sweep.block")}`} className={input} value={a.block} onChange={(e) => set(axisFor(e.target.value, 0))}>
+      <Select aria-label={`${label} ${t("sweep.block")}`} value={a.block} onChange={(e) => set(axisFor(e.target.value, 0))}>
         {Object.keys(params).map((b) => (
           <option key={b}>{b}</option>
         ))}
-      </select>
-      <select aria-label={`${label} ${t("sweep.parameter")}`} className={input} value={a.parameter} onChange={(e) => set({ ...axisFor(a.block, Object.keys(params[a.block] ?? {}).indexOf(e.target.value)) })}>
+      </Select>
+      <Select aria-label={`${label} ${t("sweep.parameter")}`} value={a.parameter} onChange={(e) => set({ ...axisFor(a.block, Object.keys(params[a.block] ?? {}).indexOf(e.target.value)) })}>
         {Object.keys(params[a.block] ?? {}).map((p) => (
           <option key={p}>{p}</option>
         ))}
-      </select>
+      </Select>
       {(["from", "to", "steps"] as const).map((k) => (
-        <input key={k} aria-label={`${label} ${t(`sweep.${k}`)}`} placeholder={t(`sweep.${k}`)} className={`${input} w-16`} value={a[k]} onChange={(e) => set({ ...a, [k]: e.target.value })} inputMode="decimal" />
+        <Input key={k} aria-label={`${label} ${t(`sweep.${k}`)}`} placeholder={t(`sweep.${k}`)} className="w-16" value={a[k]} onChange={(e) => set({ ...a, [k]: e.target.value })} inputMode="decimal" />
       ))}
-      <select aria-label={`${label} ${t("sweep.scale")}`} className={input} value={a.scale} onChange={(e) => set({ ...a, scale: e.target.value as "linear" | "log" })}>
+      <Select aria-label={`${label} ${t("sweep.scale")}`} value={a.scale} onChange={(e) => set({ ...a, scale: e.target.value as "linear" | "log" })}>
         <option value="linear">{t("sweep.linear")}</option>
         <option value="log">{t("sweep.log")}</option>
-      </select>
+      </Select>
     </fieldset>
   );
 
@@ -135,17 +135,17 @@ export function SweepPanel({ system }: { system: string | null }) {
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1">
             {t("analysis.system")}
-            <select aria-label={t("analysis.system")} className={input} value={current} onChange={(e) => setSelected(e.target.value)}>
+            <Select aria-label={t("analysis.system")} value={current} onChange={(e) => setSelected(e.target.value)}>
               {systems.map((s) => (
                 <option key={s.path} value={s.path}>
                   {s.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex flex-col gap-1">
             {t("sweep.metric")}
-            <select aria-label={t("sweep.metric")} className={input} value={metric} onChange={(e) => setMetric(e.target.value)}>
+            <Select aria-label={t("sweep.metric")} value={metric} onChange={(e) => setMetric(e.target.value)}>
               {(Object.keys(METRICS) as Group[]).map((g) => (
                 <optgroup key={g} label={t(`sweep.group.${g}`)}>
                   {METRICS[g].map((m) => (
@@ -155,31 +155,31 @@ export function SweepPanel({ system }: { system: string | null }) {
                   ))}
                 </optgroup>
               ))}
-            </select>
+            </Select>
           </label>
           {group !== "loop" ? (
             <label className="flex flex-col gap-1">
               {t("sweep.output")}
-              <select aria-label={t("sweep.output")} className={input} value={output} onChange={(e) => setOutput(e.target.value)}>
+              <Select aria-label={t("sweep.output")} value={output} onChange={(e) => setOutput(e.target.value)}>
                 {(info?.outputs ?? []).map((o) => (
                   <option key={o}>{o}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           ) : (
             <label className="flex flex-col gap-1">
               {t("analysis.loopAt")}
-              <select aria-label={t("analysis.loopAt")} className={input} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
+              <Select aria-label={t("analysis.loopAt")} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
                 {(info?.ports ?? []).map((p) => (
                   <option key={p}>{p}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
           {group === "step" && (
             <label className="flex w-20 flex-col gap-1">
               {t("analysis.duration")}
-              <input aria-label={t("analysis.duration")} className={input} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
+              <Input aria-label={t("analysis.duration")} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
             </label>
           )}
         </div>
@@ -187,29 +187,29 @@ export function SweepPanel({ system }: { system: string | null }) {
         {a2 ? (
           <div className="flex items-end gap-2">
             {axisRow(a2, setA2, t("sweep.axis2"))}
-            <button type="button" onClick={() => setA2(null)} aria-label={t("sweep.removeAxis")} className="pb-1 text-muted hover:text-fg">
+            <Button type="button" onClick={() => setA2(null)} aria-label={t("sweep.removeAxis")} variant="subtle" size="inline" className="pb-1">
               <X size={14} />
-            </button>
+            </Button>
           </div>
         ) : (
-          <button type="button" onClick={() => setA2(axisFor(Object.keys(params).at(-1) ?? firstBlock, 1))} className="self-start text-muted hover:text-fg" disabled={!firstBlock}>
+          <Button type="button" onClick={() => setA2(axisFor(Object.keys(params).at(-1) ?? firstBlock, 1))} variant="subtle" size="inline" className="self-start" disabled={!firstBlock}>
             + {t("sweep.addAxis")}
-          </button>
+          </Button>
         )}
         <div className="flex items-center gap-2">
-          <button type="submit" disabled={!firstBlock || jobId !== null} className="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 font-medium text-white disabled:opacity-40">
+          <Button type="submit" disabled={!firstBlock || jobId !== null} variant="primary" size="md">
             <Play size={12} />
             {t("sweep.run")}
-          </button>
+          </Button>
           {jobId && (
             <>
               <progress className="h-2 w-48" max={progress?.total ?? 1} value={progress?.done ?? 0} aria-label={t("sweep.progress")} />
               <span className="tabular-nums" data-testid="sweep-progress">
                 {progress ? `${progress.done}/${progress.total}` : "…"}
               </span>
-              <button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} className="rounded border border-border px-2 py-1">
+              <Button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} >
                 {t("sweep.cancel")}
-              </button>
+              </Button>
             </>
           )}
         </div>

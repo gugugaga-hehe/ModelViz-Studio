@@ -2,6 +2,7 @@ import type { SignalInfo } from "@modelviz/protocol";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSession } from "../../state/session";
+import { Input, Select } from "../ui/controls";
 
 function groupByMessage(signals: SignalInfo[]): [string, SignalInfo[]][] {
   const groups = new Map<string, SignalInfo[]>();
@@ -42,14 +43,14 @@ export function SignalSelect({ label, value, onChange }: { label: string; value:
   return (
     <label className="flex flex-col gap-1 text-xs text-muted">
       {label}
-      <select aria-label={label} className="rounded border border-border bg-surface px-2 py-1 text-sm text-fg" value={value} onChange={(e) => onChange(e.target.value)}>
+      <Select aria-label={label} size="md" value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">{t("panels.noSignal")}</option>
         {signals.map((s) => (
           <option key={s.id} value={s.id}>
             {s.id}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

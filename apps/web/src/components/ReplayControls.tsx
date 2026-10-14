@@ -3,6 +3,7 @@ import { Pause, Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { client } from "../state/session";
 import { formatDuration } from "./format";
+import { Button, Input, Select } from "./ui/controls";
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16];
 
@@ -18,13 +19,13 @@ export function ReplayControls({ source }: { source: SourceState }) {
         {t("replay.of", { recording: r.recording })}
       </div>
       <div className="flex items-center gap-2">
-        <button
+        <Button
           onClick={() => control(r.playing ? "pause" : "play")}
           aria-label={t(r.playing ? "replay.pause" : "replay.play")}
-          className="rounded border border-border p-1"
+          size="icon"
         >
           {r.playing ? <Pause size={12} /> : <Play size={12} />}
-        </button>
+        </Button>
         <input
           type="range"
           min={0}
@@ -40,18 +41,17 @@ export function ReplayControls({ source }: { source: SourceState }) {
         <span className="tabular-nums" data-testid="replay-position">
           {formatDuration(r.positionMs)} / {formatDuration(r.durationMs)}
         </span>
-        <select
+        <Select
           aria-label={t("replay.speed")}
           value={r.speed}
           onChange={(e) => control("speed", { speed: Number(e.target.value) })}
-          className="rounded border border-border bg-surface px-1"
         >
           {SPEEDS.map((s) => (
             <option key={s} value={s}>
               {s}×
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </div>
   );

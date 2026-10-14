@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { client, refreshModels } from "../../state/session";
 import { seriesColor } from "../plot-theme";
 import { SeriesPlot } from "./SeriesPlot";
+import { Button, Input, Select } from "../ui/controls";
 
 /** Discretization of the open continuous Block: compare, then save as a discrete Block. */
 export function DiscretizePanel({ block }: { block: string }) {
@@ -45,51 +46,50 @@ export function DiscretizePanel({ block }: { block: string }) {
     }
   }
 
-  const input = "rounded border border-border bg-surface px-2 py-1 text-xs";
   return (
     <section aria-label={t("disc.title")} className="flex min-h-0 flex-1 flex-col gap-2 text-xs" data-testid="discretize-panel">
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-1">
           {t("disc.method")}
-          <select className={input} value={method} onChange={(e) => setMethod(e.target.value as "zoh" | "tustin")}>
+          <Select value={method} onChange={(e) => setMethod(e.target.value as "zoh" | "tustin")}>
             <option value="zoh">ZOH</option>
             <option value="tustin">Tustin</option>
-          </select>
+          </Select>
         </label>
         <label className="flex w-24 flex-col gap-1">
           {t("disc.rate")}
-          <input className={input} value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" />
+          <Input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="decimal" />
         </label>
         {method === "tustin" && (
           <label className="flex w-24 flex-col gap-1">
             {t("disc.prewarp")}
-            <input className={input} value={prewarp} onChange={(e) => setPrewarp(e.target.value)} inputMode="decimal" placeholder="—" />
+            <Input value={prewarp} onChange={(e) => setPrewarp(e.target.value)} inputMode="decimal" placeholder="—" />
           </label>
         )}
         <label className="flex flex-col gap-1">
           {t("analysis.kind")}
-          <select className={input} value={kind} onChange={(e) => setKind(e.target.value as "step" | "impulse")}>
+          <Select value={kind} onChange={(e) => setKind(e.target.value as "step" | "impulse")}>
             <option value="step">{t("analysis.step")}</option>
             <option value="impulse">{t("analysis.impulse")}</option>
-          </select>
+          </Select>
         </label>
         <label className="flex w-20 flex-col gap-1">
           {t("analysis.duration")}
-          <input className={input} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
+          <Input value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
         </label>
-        <button onClick={() => void compare()} className="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 font-medium text-white">
+        <Button onClick={() => void compare()} variant="primary" size="md">
           <GitCompare size={12} />
           {t("disc.compare")}
-        </button>
+        </Button>
         <div className="ml-auto flex items-end gap-1">
           <label className="flex w-48 flex-col gap-1">
             {t("disc.saveAs")}
-            <input className={input} value={saveAs} onChange={(e) => setSaveAs(e.target.value)} />
+            <Input value={saveAs} onChange={(e) => setSaveAs(e.target.value)} />
           </label>
-          <button onClick={() => void save()} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1.5">
+          <Button onClick={() => void save()} size="md">
             <Save size={12} />
             {t("disc.save")}
-          </button>
+          </Button>
         </div>
       </div>
       {message && (

@@ -7,6 +7,7 @@ import { MetricsTable } from "./MetricsTable";
 import { PoleZeroPlot } from "./PoleZeroPlot";
 import { FOREGROUND_COLOR, REFERENCE_COLOR, seriesColor } from "../plot-theme";
 import { type Series, SeriesPlot } from "./SeriesPlot";
+import { Button, Input, Select } from "../ui/controls";
 
 type Kind = "step" | "impulse" | "stimulus" | "signal" | "bode" | "polezero";
 type StimKind = "sine" | "chirp" | "sineSweep";
@@ -100,7 +101,6 @@ export function AnalysisPanel({ system }: { system: string | null }) {
     }
   }
 
-  const input = "rounded border border-border bg-surface px-2 py-1 text-xs";
   const timeKind = kind === "step" || kind === "impulse" || kind === "stimulus" || kind === "signal";
   const rec = recording || recordings.find((r) => !r.active)?.id || "";
   const recDevice = recordings.find((r) => r.id === rec)?.device;
@@ -111,49 +111,49 @@ export function AnalysisPanel({ system }: { system: string | null }) {
       <form onSubmit={run} className="flex flex-wrap items-end gap-2 text-xs">
         <label className="flex flex-col gap-1">
           {t("analysis.system")}
-          <select aria-label={t("analysis.system")} className={input} value={current} onChange={(e) => setSelected(e.target.value)}>
+          <Select aria-label={t("analysis.system")} value={current} onChange={(e) => setSelected(e.target.value)}>
             {systems.map((s) => (
               <option key={s.path} value={s.path}>
                 {s.name}
                 {s.issues.length ? " ⚠" : ""}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex flex-col gap-1">
           {t("analysis.kind")}
-          <select aria-label={t("analysis.kind")} className={input} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+          <Select aria-label={t("analysis.kind")} value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
             <option value="step">{t("analysis.step")}</option>
             <option value="impulse">{t("analysis.impulse")}</option>
             <option value="stimulus">{t("analysis.stimulus")}</option>
             <option value="signal">{t("analysis.recorded")}</option>
             <option value="bode">{t("analysis.bode")}</option>
             <option value="polezero">{t("analysis.polezero")}</option>
-          </select>
+          </Select>
         </label>
         {kind === "stimulus" && (
           <>
             <label className="flex flex-col gap-1">
               Stimulus
-              <select className={input} value={stim} onChange={(e) => setStim(e.target.value as StimKind)}>
+              <Select value={stim} onChange={(e) => setStim(e.target.value as StimKind)}>
                 <option value="chirp">chirp</option>
                 <option value="sineSweep">sine sweep</option>
                 <option value="sine">sine</option>
-              </select>
+              </Select>
             </label>
             <label className="flex w-16 flex-col gap-1">
               {stim === "sine" ? "f [Hz]" : "f0 [Hz]"}
-              <input className={input} value={f0} onChange={(e) => setF0(e.target.value)} inputMode="decimal" />
+              <Input value={f0} onChange={(e) => setF0(e.target.value)} inputMode="decimal" />
             </label>
             {stim !== "sine" && (
               <label className="flex w-16 flex-col gap-1">
                 f1 [Hz]
-                <input className={input} value={f1} onChange={(e) => setF1(e.target.value)} inputMode="decimal" />
+                <Input value={f1} onChange={(e) => setF1(e.target.value)} inputMode="decimal" />
               </label>
             )}
             <label className="flex w-16 flex-col gap-1">
               {t("analysis.amplitude")}
-              <input className={input} value={amp} onChange={(e) => setAmp(e.target.value)} inputMode="decimal" />
+              <Input value={amp} onChange={(e) => setAmp(e.target.value)} inputMode="decimal" />
             </label>
           </>
         )}
@@ -161,7 +161,7 @@ export function AnalysisPanel({ system }: { system: string | null }) {
           <>
             <label className="flex flex-col gap-1">
               {t("analysis.recording")}
-              <select aria-label={t("analysis.recording")} className={input} value={rec} onChange={(e) => setRecording(e.target.value)}>
+              <Select aria-label={t("analysis.recording")} value={rec} onChange={(e) => setRecording(e.target.value)}>
                 {recordings
                   .filter((r) => !r.active)
                   .map((r) => (
@@ -169,69 +169,69 @@ export function AnalysisPanel({ system }: { system: string | null }) {
                       {r.id}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             <label className="flex flex-col gap-1">
               Signal
-              <select aria-label={t("analysis.inputSignal")} className={input} value={recSig} onChange={(e) => setRecSignal(e.target.value)}>
+              <Select aria-label={t("analysis.inputSignal")} value={recSig} onChange={(e) => setRecSignal(e.target.value)}>
                 {recSignals.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.message}.{s.field}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="flex w-16 flex-col gap-1">
               {t("analysis.startS")}
-              <input aria-label={t("analysis.startS")} className={input} value={startS} onChange={(e) => setStartS(e.target.value)} inputMode="decimal" />
+              <Input aria-label={t("analysis.startS")} value={startS} onChange={(e) => setStartS(e.target.value)} inputMode="decimal" />
             </label>
           </>
         )}
         {timeKind && (
           <label className="flex w-20 flex-col gap-1">
             {t("analysis.duration")}
-            <input aria-label={t("analysis.duration")} className={input} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
+            <Input aria-label={t("analysis.duration")} value={duration} onChange={(e) => setDuration(e.target.value)} inputMode="decimal" />
           </label>
         )}
         {kind === "bode" && (
           <label className="flex flex-col gap-1">
             {t("analysis.methodLabel")}
-            <select aria-label={t("analysis.methodLabel")} className={input} value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
+            <Select aria-label={t("analysis.methodLabel")} value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
               <option value="auto">{t("analysis.methodAuto", { method: t(info?.linear ? "analysis.method.analytic" : "analysis.method.measured") })}</option>
               <option value="analytic">{t("analysis.method.analytic")}</option>
               <option value="measured">{t("analysis.method.measured")}</option>
-            </select>
+            </Select>
           </label>
         )}
         {kind === "bode" && (method === "measured" || (method === "auto" && info && !info.linear)) && (
           <label className="flex w-20 flex-col gap-1">
             {t("analysis.amplitude")}
-            <input aria-label={t("analysis.measureAmplitude")} className={input} value={mAmp} onChange={(e) => setMAmp(e.target.value)} inputMode="decimal" />
+            <Input aria-label={t("analysis.measureAmplitude")} value={mAmp} onChange={(e) => setMAmp(e.target.value)} inputMode="decimal" />
           </label>
         )}
         {kind === "bode" && (
           <label className="flex flex-col gap-1">
             {t("analysis.loopAt")}
-            <select aria-label={t("analysis.loopAt")} className={input} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
+            <Select aria-label={t("analysis.loopAt")} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
               <option value="">{t("analysis.closedOnly")}</option>
               {(info?.ports ?? []).map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
-        <button type="submit" disabled={!current || busy} className="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 font-medium text-white disabled:opacity-40">
+        <Button type="submit" disabled={!current || busy} variant="primary" size="md">
           <Play size={12} />
           {t("analysis.run")}
-        </button>
+        </Button>
         {jobId && (slow || progress) && (
           <>
             {progress && <progress className="h-2 w-32" max={progress.total} value={progress.done} aria-label={t("sweep.progress")} />}
-            <button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} className="rounded border border-border px-2 py-1">
+            <Button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} >
               {t("sweep.cancel")}
-            </button>
+            </Button>
           </>
         )}
       </form>
@@ -338,11 +338,11 @@ function PoleZeroView({ result }: { result: PoleZeroResult }) {
       <div className="flex flex-col gap-2 text-xs">
         <label className="flex flex-col gap-1">
           {t("pz.zerosOf")}
-          <select className="rounded border border-border bg-surface px-2 py-1" value={output} onChange={(e) => setOutput(e.target.value)}>
+          <Select value={output} onChange={(e) => setOutput(e.target.value)}>
             {outputs.map((o) => (
               <option key={o}>{o}</option>
             ))}
-          </select>
+          </Select>
         </label>
         <div>
           <div className="text-muted">{t("pz.poles")}</div>

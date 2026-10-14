@@ -18,6 +18,7 @@ import { type SpectrumSettings, SpectrumPanel } from "./panels/SpectrumPanel";
 import { TablePanel } from "./panels/TablePanel";
 import { XyPlotPanel } from "./panels/XyPlotPanel";
 import { TimePlotPanel } from "./TimePlotPanel";
+import { Button } from "./ui/controls";
 
 /** Panel kinds the workspace can hold; the key is the dockview component id saved in the layout. */
 type Kind = "time" | "xy" | "table" | "fft" | "attitude";
@@ -236,7 +237,6 @@ export function Workspace() {
     setSaves((n) => n + 1);
   };
 
-  const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted hover:border-accent hover:text-fg";
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2" data-testid="workspace" data-layout-saves={saves}>
       {problem !== null && (
@@ -245,10 +245,10 @@ export function Workspace() {
           <span className="min-w-0 flex-1">
             {t("layout.unreadable")} <span className="text-muted">{problem}</span>
           </span>
-          <button className={btn} onClick={() => void resetLayout().catch((e: Error) => setProblem(e.message))}>
+          <Button onClick={() => void resetLayout().catch((e: Error) => setProblem(e.message))}>
             <RotateCcw size={14} />
             {t("layout.reset")}
-          </button>
+          </Button>
         </div>
       )}
       {backup !== null && (
@@ -257,26 +257,26 @@ export function Workspace() {
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button className={btn} onClick={() => api && addPanel(api, "time")}>
+        <Button onClick={() => api && addPanel(api, "time")}>
           <ChartLine size={14} />
           {t("plot.add")}
-        </button>
-        <button className={btn} onClick={() => api && addPanel(api, "xy")}>
+        </Button>
+        <Button onClick={() => api && addPanel(api, "xy")}>
           <ChartScatter size={14} />
           {t("panels.addXy")}
-        </button>
-        <button className={btn} onClick={() => api && addPanel(api, "table")}>
+        </Button>
+        <Button onClick={() => api && addPanel(api, "table")}>
           <Table size={14} />
           {t("panels.addTable")}
-        </button>
-        <button className={btn} onClick={() => api && addPanel(api, "fft")}>
+        </Button>
+        <Button onClick={() => api && addPanel(api, "fft")}>
           <AudioLines size={14} />
           {t("panels.addFft")}
-        </button>
-        <button className={btn} onClick={() => api && addPanel(api, "attitude")}>
+        </Button>
+        <Button onClick={() => api && addPanel(api, "attitude")}>
           <Rotate3d size={14} />
           {t("panels.addAttitude")}
-        </button>
+        </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
         <DockviewReact className="h-full" theme={theme} components={components} watermarkComponent={Watermark} onReady={(e) => setApi(e.api)} />

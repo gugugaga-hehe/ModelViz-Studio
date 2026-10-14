@@ -2,6 +2,7 @@ import { Play, Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { Button, Select } from "./ui/controls";
 
 /** Runs a System from a live Signal so its outputs can be plotted against the measurement. */
 export function LiveSystemsPanel() {
@@ -16,7 +17,6 @@ export function LiveSystemsPanel() {
   const sys = system || systems[0]?.path || "";
   const sig = signal || inputs[0]?.id || "";
   const running = Object.values(live).filter((l) => l.running);
-  const input = "w-full rounded border border-border bg-surface px-2 py-1 text-xs";
 
   async function start() {
     setError(null);
@@ -40,9 +40,9 @@ export function LiveSystemsPanel() {
               {l.input} ← {l.signal}
             </div>
           </div>
-          <button onClick={() => void client.request("system.live.stop", { system: l.system })} aria-label={t("live.stop")} className="rounded border border-border p-1">
+          <Button onClick={() => void client.request("system.live.stop", { system: l.system })} aria-label={t("live.stop")} size="icon">
             <Square size={12} />
-          </button>
+          </Button>
         </div>
       ))}
       {Object.values(live)
@@ -54,24 +54,24 @@ export function LiveSystemsPanel() {
         ))}
       {systems.length > 0 && inputs.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <select aria-label={t("live.system")} className={input} value={sys} onChange={(e) => setSystem(e.target.value)}>
+          <Select aria-label={t("live.system")} className="w-full" value={sys} onChange={(e) => setSystem(e.target.value)}>
             {systems.map((s) => (
               <option key={s.path} value={s.path}>
                 {s.name}
               </option>
             ))}
-          </select>
-          <select aria-label={t("live.signal")} className={input} value={sig} onChange={(e) => setSignal(e.target.value)}>
+          </Select>
+          <Select aria-label={t("live.signal")} className="w-full" value={sig} onChange={(e) => setSignal(e.target.value)}>
             {inputs.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.id}
               </option>
             ))}
-          </select>
-          <button onClick={() => void start()} className="inline-flex items-center justify-center gap-1 rounded border border-border px-2 py-1 hover:border-accent">
+          </Select>
+          <Button onClick={() => void start()} >
             <Play size={12} />
             {t("live.start")}
-          </button>
+          </Button>
         </div>
       ) : (
         <p className="text-muted">{t("live.none")}</p>
