@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ParameterType } from "./parameters.ts";
 
 /** Version of the on-disk Project format. Bump when the layout of a Project folder changes. */
 export const PROJECT_SCHEMA_VERSION = 1;
@@ -34,8 +35,21 @@ export const VirtualFaults = z.object({
 });
 export type VirtualFaults = z.infer<typeof VirtualFaults>;
 
+/** One Device Parameter in a Virtual Device's simulated parameter store. */
+export const VirtualParameter = z.object({
+  value: z.number(),
+  type: ParameterType.default("float"),
+  /** Writes outside the range are refused: the Device keeps and reports its old value. */
+  min: z.number().optional(),
+  max: z.number().optional(),
+  readOnly: z.boolean().default(false),
+});
+export type VirtualParameter = z.infer<typeof VirtualParameter>;
+
 export const VirtualDeviceConfig = z.object({
   faults: VirtualFaults.default({}),
+  /** Simulated Device Parameters, in enumeration order. */
+  parameters: z.record(z.string(), VirtualParameter).default({}),
   /** Messages to emit, by Message name. Unlisted Messages are not emitted. */
   messages: z.record(
     z.string(),

@@ -1,5 +1,5 @@
 import type { LinkHealth, MessageHealth } from "@modelviz/protocol";
-import type { FrameDecoder, FrameFormat, MessageSpec } from "./frame-format.ts";
+import type { DecodedMessage, FrameDecoder, FrameFormat, MessageSpec } from "./frame-format.ts";
 
 /** A Device Timestamp gap this many nominal periods (or going backwards) counts as a timing jump. */
 const JUMP_PERIODS = 50;
@@ -56,6 +56,8 @@ export class DeviceLink {
     private readonly targets: Map<string, SignalTarget[]>,
     private readonly publish: Publish,
     private readonly verify?: DialectVerification,
+    /** Sees every decoded Message once the dialect check has passed. */
+    private readonly onMessage?: (msg: DecodedMessage) => void,
   ) {
     this.verification = verify ? "pending" : null;
     this.decoder = format.createDecoder();
@@ -91,6 +93,7 @@ export class DeviceLink {
         onResult(received === expectedHash, received);
         if (this.verification === "failed") return;
       }
+      this.onMessage?.(msg);
       const spec = this.specs.get(msg.message);
       const targets = this.targets.get(msg.message);
       if (!spec) continue;

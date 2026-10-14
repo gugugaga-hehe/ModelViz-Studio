@@ -27,6 +27,7 @@ import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject, updateManifest } from "./project-store.ts";
 import { LiveSystem } from "./live-system.ts";
 import { DeviceLink } from "./device-link.ts";
+import type { ParameterClient } from "./device-parameters.ts";
 import { PythonEnvironment } from "./python-env.ts";
 import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
 import { SignalBus } from "./signal-bus.ts";
@@ -151,6 +152,18 @@ export class Workbench {
       const { device, transport } = Methods["source.connect"].params.parse(p);
       const d = this.idleDevice(device);
       return this.startSource(d, (opts) => ActiveSource.live(opts, transport));
+    },
+    "parameters.list": async (p) => {
+      const { device } = Methods["parameters.list"].params.parse(p);
+      return { device, ...(await this.parameterClient(device).list()) };
+    },
+    "parameters.read": async (p) => {
+      const { device, name } = Methods["parameters.read"].params.parse(p);
+      return this.parameterClient(device).read(name);
+    },
+    "parameters.write": async (p) => {
+      const { device, name, value } = Methods["parameters.write"].params.parse(p);
+      return { device, requested: value, ...(await this.parameterClient(device).write(name, value)) };
     },
     "transports.listSerial": async () => listSerialPorts(),
     "csv.import": async (p) => {
@@ -481,6 +494,7 @@ export class Workbench {
           this.broadcast("source.changed", state);
         },
         onReset: () => this.broadcast("signals.reset", { device: d.config.id }),
+        onParameter: (parameter) => this.broadcast("parameters.changed", { device: d.config.id, parameter }),
       });
     } catch (e) {
       throw new ProtocolFailure("invalid_project", (e as Error).message);
@@ -488,6 +502,20 @@ export class Workbench {
     d.source = source;
     d.link = source.link;
     return source.state();
+  }
+
+  /** Device Parameter access for a Device whose Source is running and can send to the Device. */
+  private parameterClient(id: string): ParameterClient {
+    const d = this.device(id);
+    if (!d.format?.parameters) {
+      throw new ProtocolFailure("invalid_project", `The Frame Format of Device ${id} cannot carry Device Parameters`);
+    }
+    const src = d.source;
+    if (!src?.parameters || src.kind === "replay") {
+      throw new ProtocolFailure("conflict", `Device ${id} needs a live or Virtual Device Source for Device Parameters`);
+    }
+    if (!src.canExchange) throw new ProtocolFailure("conflict", `Device ${id} is not running`);
+    return src.parameters;
   }
 
   private requireProject(): ProjectInfo {
@@ -536,6 +564,7 @@ export class Workbench {
         rt.error = (e as Error).message;
       }
       for (const m of rt.format?.messages ?? []) {
+        if (m.control) continue;
         const targets: SignalTarget[] = [];
         const timebase = m.deviceTimestamp ? "device" : "host";
         for (const f of m.fields.filter((f) => f.numeric)) {

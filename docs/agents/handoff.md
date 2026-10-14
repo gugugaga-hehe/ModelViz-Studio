@@ -7,9 +7,9 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 - **Done (one stacked PR per ticket, none merged yet):** #2–#16 → PRs #22–#36.
   Each branch `issue-<n>-…` is based on the previous ticket's branch; PR #N targets the previous branch.
   Merge in order from #22 using merge commits (squash breaks the stack).
-- **Remaining:** #17 Device Parameters, #18 Parameter Mapping & Push, #19 FFT/PSD,
-  #20 Attitude 3D Panel, #21 XY/table Panels + dockable layout. Start #17 from branch
-  `issue-16-drive-systems-with-signals`.
+- **Done since:** #17 Device Parameters on branch `issue-17-device-parameters`.
+- **Remaining:** #18 Parameter Mapping & Push, #19 FFT/PSD, #20 Attitude 3D Panel,
+  #21 XY/table Panels + dockable layout. Start #18 from branch `issue-17-device-parameters`.
 - Last full verification on `issue-16-…`: `pnpm typecheck` clean, `pnpm test` 110 passed,
   `pnpm test:e2e` 12 passed. CI runs on every stacked PR (`pull_request` trigger); earlier red
   runs on #25, #26, #33 and #36 came from the two flaky tests fixed on `issue-16-…` (see below).
@@ -34,11 +34,17 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 - Measured Frequency Response: stepped sines with least-squares sine fit; continuous-only
   Systems oversampled 20×.
 
+- Device Parameters (#17): the Framing exposes a `ParameterProtocol` on `FrameFormat`
+  (`mavlink/params.ts`); the core `ParameterClient` (`device-parameters.ts`) does retries and
+  enumeration. A write is acknowledged when the Device echoes the stored value; a different echo is a
+  refusal; no echo after 3 × 500 ms is a `timeout` error. PARAM_* Messages are `control` Messages and
+  produce no Signals. Values travel by C cast. Virtual Devices simulate a store (`virtual.parameters`).
+
 ## Notes for the next tickets
 
-- #17/#18: Device Parameters go through MAVLink PARAM_* Messages (ADR-0009). The Virtual Device
-  needs a simulated parameter store; Commands/writes go out via `Transport.write`
-  (Virtual Device currently has no inbound path — add one).
+- #18: build Push on `parameters.read`/`parameters.write` (per-parameter results already come back as
+  `accepted` + the acknowledged value). The bench template's Device Parameters (RATE_KP, RATE_KI,
+  GYRO_LPF_HZ) mirror the Block Parameters Kp, Ki, fc, ready for Parameter Mappings.
 - #19: Signals are buffered client-side in `apps/web/src/state/signal-store.ts`; FFT/PSD can run in
   the browser on those buffers or as a server Analysis.
 - #21: layouts must persist in the Project (e.g. `layout.yaml`); panels currently are a fixed

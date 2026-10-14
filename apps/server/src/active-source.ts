@@ -1,4 +1,5 @@
-import type { SourceKind, SourceState, SourceStatus, TransportConfig } from "@modelviz/protocol";
+import type { DeviceParameter, SourceKind, SourceState, SourceStatus, TransportConfig } from "@modelviz/protocol";
+import { ParameterClient } from "./device-parameters.ts";
 import { DeviceLink, type Publish, type SignalTarget } from "./device-link.ts";
 import type { FrameFormat } from "./frame-format.ts";
 import { type Transport, createTransport } from "./transports.ts";
@@ -10,6 +11,9 @@ import type { VirtualDeviceConfig } from "@modelviz/protocol";
 /** How long to wait for the Device's dialect hash after connecting (ms). */
 export const DIALECT_CHECK_TIMEOUT_MS = 5000;
 
+/** Address the workbench sends from, as a ground station would. */
+const WORKBENCH_ADDRESS = { system: 255, component: 190 };
+
 export interface SourceOptions {
   device: string;
   format: FrameFormat;
@@ -18,6 +22,8 @@ export interface SourceOptions {
   onState(state: SourceState): void;
   /** Downstream Signals restart (Log Replay seek). */
   onReset?(): void;
+  /** The Device reported a Device Parameter. */
+  onParameter?(p: DeviceParameter): void;
 }
 
 /**
@@ -35,6 +41,10 @@ export class ActiveSource {
   recorder: Recorder | null = null;
   /** Dialect hash the Device reported in the last successful check. */
   verifiedHash: string | null = null;
+  /** Device Parameter access; null when the Framing has none or the Source cannot send (Log Replay). */
+  readonly parameters: ParameterClient | null = null;
+  /** Sends bytes to the Device. */
+  private sendBytes: ((bytes: Uint8Array) => void) | null = null;
 
   private constructor(
     readonly kind: SourceKind,
@@ -44,6 +54,14 @@ export class ActiveSource {
     private readonly checkDialect = true,
   ) {
     const { format } = opts;
+    if (format.parameters && kind !== "replay") {
+      const encoder = format.createEncoder(WORKBENCH_ADDRESS);
+      this.parameters = new ParameterClient(
+        format.parameters,
+        (m) => this.sendBytes?.(encoder.encode(m.message, m.values)),
+        (p) => opts.onParameter?.(p),
+      );
+    }
     this.link = new DeviceLink(
       opts.device,
       format,
@@ -61,12 +79,19 @@ export class ActiveSource {
             },
           }
         : undefined,
+      this.parameters ? (msg) => this.parameters!.observe(msg) : undefined,
     );
+  }
+
+  /** Whether Device Parameters can be exchanged right now. */
+  get canExchange(): boolean {
+    return this.status === "running" && this.sendBytes !== null;
   }
 
   static virtual(opts: SourceOptions, config: VirtualDeviceConfig): ActiveSource {
     const src = new ActiveSource("virtual", opts);
     const vd = new VirtualDevice(opts.format, config, (bytes) => src.receive(bytes));
+    src.sendBytes = (bytes) => vd.receive(bytes);
     src.stopTarget = () => vd.stop();
     src.connected();
     vd.start();
@@ -85,6 +110,7 @@ export class ActiveSource {
         }
       },
     });
+    src.sendBytes = (bytes) => transport.write(bytes);
     src.stopTarget = () => transport.stop();
     transport.start();
     return src;

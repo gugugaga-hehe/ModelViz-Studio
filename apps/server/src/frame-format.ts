@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { type FieldGenerator, FrameFormatFile, type MessageOptions, type TimeUnit } from "@modelviz/protocol";
+import { type FieldGenerator, FrameFormatFile, type MessageOptions, type ParameterType, type TimeUnit } from "@modelviz/protocol";
 import { parse } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
 import { type FieldValue, decodePayload, encodeFrame } from "./mavlink/codec.ts";
 import { DialectError, dialectHash, loadDialect } from "./mavlink/dialect.ts";
+import { mavlinkParameters } from "./mavlink/params.ts";
 import { Mavlink2Parser, type ParserStats } from "./mavlink/parser.ts";
 
 /**
@@ -27,6 +28,8 @@ export interface MessageSpec {
   /** Field holding the Device Timestamp and its scale to milliseconds. */
   deviceTimestamp?: { field: string; toMs: number };
   nominalRateHz?: number;
+  /** Part of the Framing's control plane (e.g. Device Parameter traffic), not telemetry: no Signals. */
+  control?: boolean;
   /** Array Fields carrying consecutive samples; Signals for them are per-sample, not per-element. */
   batch?: {
     fields: string[];
@@ -41,6 +44,50 @@ const TO_MS: Record<TimeUnit, number> = { us: 1e-3, ms: 1, s: 1e3 };
 export interface DecodedMessage {
   message: string;
   values: Record<string, FieldValue>;
+  /** Address of the sending node, if the Framing has one. */
+  sender?: NodeAddress;
+}
+
+export interface NodeAddress {
+  system: number;
+  component: number;
+}
+
+/** A Message to encode and send. */
+export interface OutgoingMessage {
+  message: string;
+  values: Record<string, FieldValue>;
+}
+
+/** A Device Parameter as reported by the Device in one Message. */
+export interface ParameterReport {
+  name: string;
+  value: number;
+  type: ParameterType;
+  /** -1 when the report is not part of an enumeration. */
+  index: number;
+  /** Total number of Device Parameters on the Device. */
+  count: number;
+}
+
+/** Device-side view of Device Parameters, for simulating a Device. */
+export interface ParameterStore {
+  entries(): { name: string; value: number; type: ParameterType }[];
+  /** Applies a write; the store decides whether to accept it. */
+  set(name: string, value: number): void;
+}
+
+/** How a Framing carries Device Parameters; the core never sees the Messages involved (ADR-0002). */
+export interface ParameterProtocol {
+  /** Messages belonging to the protocol. */
+  messages: string[];
+  maxNameLength: number;
+  requestList(to: NodeAddress): OutgoingMessage;
+  requestRead(to: NodeAddress, which: string | number): OutgoingMessage;
+  requestWrite(to: NodeAddress, name: string, value: number, type: ParameterType): OutgoingMessage;
+  report(msg: DecodedMessage): ParameterReport | null;
+  /** Device side: the answers to a request, from `store`. */
+  serve(msg: DecodedMessage, store: ParameterStore): OutgoingMessage[];
 }
 
 export interface FrameDecoder {
@@ -58,8 +105,11 @@ export interface FrameFormat {
   dialectHash: string;
   /** Where the Device reports its dialect hash, if the Frame Format asks for a check. */
   dialectCheck?: { message: string; field: string };
+  /** Present when the Framing can carry Device Parameters. */
+  parameters?: ParameterProtocol;
   createDecoder(): FrameDecoder;
-  createEncoder(): FrameEncoder;
+  /** Frames are sent as `sender`; by default as the Device itself. */
+  createEncoder(sender?: NodeAddress): FrameEncoder;
 }
 
 export async function loadFrameFormat(projectPath: string, relPath: string): Promise<FrameFormat> {
@@ -131,8 +181,10 @@ async function loadMavlink2(dialectPath: string): Promise<FrameFormat> {
     if (e instanceof DialectError) throw new ProtocolFailure("invalid_project", e.message);
     throw e;
   }
+  const parameters = mavlinkParameters(dialect);
   const messages: MessageSpec[] = dialect.messages.map((m) => ({
     name: m.name,
+    ...(parameters?.messages.includes(m.name) ? { control: true } : {}),
     fields: m.fields.map((f) => ({
       name: f.name,
       arrayLength: f.arrayLength,
@@ -144,21 +196,26 @@ async function loadMavlink2(dialectPath: string): Promise<FrameFormat> {
   return {
     messages,
     dialectHash: dialectHash(dialect),
+    ...(parameters ? { parameters } : {}),
     createDecoder() {
       const parser = new Mavlink2Parser(dialect);
       return {
         stats: parser.stats,
         push: (bytes) =>
-          parser.push(bytes).map((f) => ({ message: f.message.name, values: decodePayload(f.message, f.payload) })),
+          parser.push(bytes).map((f) => ({
+            message: f.message.name,
+            values: decodePayload(f.message, f.payload),
+            sender: { system: f.sysid, component: f.compid },
+          })),
       };
     },
-    createEncoder() {
+    createEncoder(sender = { system: 1, component: 1 }) {
       let seq = 0;
       return {
         encode(message, values) {
           const def = dialect.byName.get(message);
           if (!def) throw new ProtocolFailure("invalid_project", `Unknown Message ${message}`);
-          return encodeFrame(def, values, { seq: seq++ & 0xff, sysid: 1, compid: 1 });
+          return encodeFrame(def, values, { seq: seq++ & 0xff, sysid: sender.system, compid: sender.component });
         },
       };
     },
