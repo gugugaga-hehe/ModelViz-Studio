@@ -175,6 +175,8 @@ export const RecordedSignal = z.object({
 export type RecordedSignal = z.infer<typeof RecordedSignal>;
 
 export const TimeAnalysisRequest = z.object({
+  /** Client-chosen id; when given, the Analysis can be cancelled with `analysis.cancel`. */
+  id: z.string().optional(),
   /** System file path, relative to the Project. */
   system: z.string(),
   kind: z.enum(["step", "impulse", "stimulus", "signal"]),

@@ -24,12 +24,18 @@ test("edits and runs a Python Block in a System", async ({ page }) => {
     await mkdir(join(path, "systems"));
     await writeFile(
       join(path, "python/limiter.py"),
-      "class Block:\n    def __init__(self, params, sample_rate):\n        self.limit = params['limit']\n    def process(self, t, inputs):\n        return {'y': [max(-self.limit, min(self.limit, 2 * u)) for u in inputs['u']]}\n",
+      "class Block:\n    def __init__(self, params, sample_rate):\n        self.limit = params['limit']\n    def process(self, t, inputs):\n        print('limiter ran', end='')\n        return {'y': [max(-self.limit, min(self.limit, 2 * u)) for u in inputs['u']]}\n",
     );
     await writeFile(join(path, "blocks/limiter.yaml"), "kind: python\nmodule: python/limiter.py\nparameters:\n  limit: { default: 1 }\n");
     await writeFile(
       join(path, "systems/limit.yaml"),
       "sampleRateHz: 1000\ninputs: [r]\nblocks:\n  g: { block: blocks/limiter.yaml }\nconnections:\n  - { from: r, to: g.u }\noutputs: { y: g.y }\n",
+    );
+    await writeFile(join(path, "python/stuck.py"), "class Block:\n    def __init__(self, params, sample_rate):\n        pass\n    def process(self, t, inputs):\n        while True:\n            pass\n");
+    await writeFile(join(path, "blocks/stuck.yaml"), "kind: python\nmodule: python/stuck.py\n");
+    await writeFile(
+      join(path, "systems/stuck.yaml"),
+      "sampleRateHz: 1000\ninputs: [r]\nblocks:\n  g: { block: blocks/stuck.yaml }\nconnections:\n  - { from: r, to: g.u }\noutputs: { y: g.y }\n",
     );
     await page.getByRole("button", { name: "Switch Project" }).click();
     await page.getByLabel("Folder (absolute path)").fill(path);
@@ -53,6 +59,18 @@ test("edits and runs a Python Block in a System", async ({ page }) => {
     await expect(result).toHaveAttribute("data-points", "201");
     // step of 1 through 2·u limited to ±1
     expect(JSON.parse((await result.getAttribute("data-final"))!).y).toBe(1);
+
+    // what the Block printed is shown, even without a trailing newline
+    const output = py.getByTestId("python-output");
+    await output.getByText("Block output").click();
+    await expect(output).toContainText("limiter ran");
+
+    // a Block that never returns can be cancelled
+    await analysis.getByLabel("System").selectOption({ label: "stuck" });
+    await analysis.getByRole("button", { name: "Run" }).click();
+    await analysis.getByRole("button", { name: "Cancel" }).click();
+    await expect(analysis.getByRole("alert")).toContainText("cancelled");
+    await expect(analysis.getByRole("button", { name: "Run" })).toBeEnabled();
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

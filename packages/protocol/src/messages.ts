@@ -358,6 +358,8 @@ export const Events = {
   "signals.reset": z.object({ device: z.string() }),
   "analysis.progress": z.object({ id: z.string(), done: z.number(), total: z.number() }),
   "python.changed": PythonStatus,
+  /** Text Python Blocks wrote to stdout/stderr (print, warnings, tracebacks), as it arrives. */
+  "python.output": z.object({ text: z.string() }),
   "system.live.changed": LiveSystemState,
   /** The Device reported a Device Parameter value (answer to a read or write, or unsolicited). */
   "parameters.changed": z.object({ device: z.string(), parameter: DeviceParameter }),

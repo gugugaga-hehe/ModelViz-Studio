@@ -1,15 +1,26 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ModelVizClient } from "@modelviz/client";
 import { describe, expect, it } from "vitest";
 import { harness } from "./harness.ts";
 
 const hasUv = spawnSync("uv", ["--version"]).status === 0;
+
+/** Whether a process with this pid still exists (zombies of exited children count as gone). */
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  const stat = spawnSync("ps", ["-o", "stat=", "-p", String(pid)]).stdout?.toString().trim() ?? "";
+  return stat !== "" && !stat.startsWith("Z");
+}
 type H = Awaited<ReturnType<typeof harness>>;
 
 /** Project with a ready (dependency-free) Python environment and the given files. */
-async function pythonProject(h: H, c: ModelVizClient, files: Record<string, string>) {
+async function pythonProject(h: H, c: ModelVizClient, files: Record<string, string>, config: { callTimeoutS?: number } = {}) {
   const path = join(h.dir, "py");
   await c.request("project.create", { path, name: "py" });
   for (const [rel, text] of Object.entries(files)) {
@@ -19,7 +30,7 @@ async function pythonProject(h: H, c: ModelVizClient, files: Record<string, stri
   const ready = new Promise<void>((resolve, reject) =>
     c.on("python.changed", (s) => (s.state === "ready" ? resolve() : s.state === "failed" ? reject(new Error(s.error)) : undefined)),
   );
-  await c.request("python.configure", { dependencies: [] });
+  await c.request("python.configure", { dependencies: [], ...config });
   await ready;
   return path;
 }
@@ -168,5 +179,81 @@ describe.skipIf(!hasUv)("Python Blocks", () => {
     await expect(c.request("analysis.time", { system: "systems/sat.yaml", kind: "step", durationS: 0.1 })).rejects.toThrow(
       /Python environment is not ready/,
     );
+  });
+
+  it("keeps Block output off the reply channel and forwards it to clients", async () => {
+    await using h = await harness();
+    const c = await h.client();
+    await pythonProject(h, c, {
+      "python/chatty.py": `
+import os
+class Block:
+    def __init__(self, params, sample_rate):
+        print("loading", end="")
+    def process(self, t, inputs):
+        print("chunk of", len(t), end="")
+        os.write(1, b"raw fd write\\n")
+        print("done")
+        return {"y": [2 * u for u in inputs["u"]]}
+`,
+      "blocks/chatty.yaml": "kind: python\nmodule: python/chatty.py\n",
+      "systems/chatty.yaml": single("blocks/chatty.yaml"),
+    });
+    let output = "";
+    c.on("python.output", (o) => (output += o.text));
+    const r = await c.request("analysis.time", { system: "systems/chatty.yaml", kind: "stimulus", stimulus: sine, durationS: 1 });
+    r.series.y!.forEach((y, i) => expect(y).toBeCloseTo(2 * r.series.r![i]!, 12));
+    await expect.poll(() => output).toContain("raw fd write");
+    expect(output).toContain("loading");
+    expect(output).toContain("chunk of 1001");
+  });
+
+  it("stops a stuck Python Block when its Analysis is cancelled", async () => {
+    await using h = await harness();
+    const c = await h.client();
+    const path = await pythonProject(h, c, {
+      "python/stuck.py": `
+import os
+class Block:
+    def __init__(self, params, sample_rate):
+        with open(os.path.join(os.path.dirname(__file__), "pid"), "w") as f:
+            f.write(str(os.getpid()))
+    def process(self, t, inputs):
+        while True:
+            pass
+`,
+      "blocks/stuck.yaml": "kind: python\nmodule: python/stuck.py\n",
+      "systems/stuck.yaml": single("blocks/stuck.yaml"),
+    });
+    const run = c.request("analysis.time", { id: "stuck", system: "systems/stuck.yaml", kind: "step", durationS: 1 });
+    const pidFile = join(path, "python", "pid");
+    await expect.poll(() => readFile(pidFile, "utf8").catch(() => ""), { timeout: 10000 }).not.toBe("");
+    const pid = Number(await readFile(pidFile, "utf8"));
+    const started = performance.now();
+    expect(await c.request("analysis.cancel", { id: "stuck" })).toEqual({ cancelled: true });
+    await expect(run).rejects.toMatchObject({ code: "cancelled" });
+    expect(performance.now() - started).toBeLessThan(2000);
+    await expect.poll(() => alive(pid)).toBe(false);
+  });
+
+  it("stops a Python Block that does not answer within the call timeout", async () => {
+    await using h = await harness();
+    const c = await h.client();
+    await pythonProject(
+      h,
+      c,
+      {
+        "python/slow.py": "import time\nclass Block:\n    def __init__(self, params, sample_rate):\n        pass\n    def process(self, t, inputs):\n        time.sleep(60)\n",
+        "blocks/slow.yaml": "kind: python\nmodule: python/slow.py\n",
+        "systems/slow.yaml": single("blocks/slow.yaml"),
+      },
+      { callTimeoutS: 0.5 },
+    );
+    const started = performance.now();
+    await expect(c.request("analysis.time", { system: "systems/slow.yaml", kind: "step", durationS: 1 })).rejects.toMatchObject({
+      code: "invalid_system",
+      message: expect.stringMatching(/blocks\/slow\.yaml did not answer within 0\.5 s/),
+    });
+    expect(performance.now() - started).toBeLessThan(5000);
   });
 });

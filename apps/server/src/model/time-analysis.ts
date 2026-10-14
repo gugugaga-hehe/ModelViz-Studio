@@ -2,7 +2,7 @@ import type { StepMetrics, TimeAnalysisRequest, TimeAnalysisResult } from "@mode
 import { ProtocolFailure } from "../errors.ts";
 import { linearFinalValues, stepMetrics } from "./lti.ts";
 import { stimulusFn } from "./stimulus.ts";
-import { PythonHost } from "./python-host.ts";
+import { PythonHost, type PythonRuntime } from "./python-host.ts";
 import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
 
 /** Runs a step, impulse or Stimulus response of a System from rest. */
@@ -26,11 +26,12 @@ export function holdLookup(sig: SampledSignal, offsetS: number): (t: number) => 
 export async function runTimeAnalysis(
   projectPath: string,
   req: TimeAnalysisRequest,
-  python: string | null = null,
+  python: PythonRuntime | null = null,
   signal: SampledSignal | null = null,
+  abort?: AbortSignal,
 ): Promise<TimeAnalysisResult> {
   const sys = await loadSystem(projectPath, req.system);
-  const host = withPython(sys, python);
+  const host = withPython(sys, python, abort);
   try {
     return await timeAnalysis(sys, req, host ?? undefined, signal);
   } finally {
@@ -38,12 +39,14 @@ export async function runTimeAnalysis(
   }
 }
 
-/** Starts a Python host when the System contains Python Blocks. */
-export function withPython(sys: LoadedSystem, python: string | null): PythonHost | null {
+/** Starts a Python host when the System contains Python Blocks; aborting `abort` stops it at once. */
+export function withPython(sys: LoadedSystem, python: PythonRuntime | null, abort?: AbortSignal): PythonHost | null {
   const needs = [...sys.defs.values()].some((d) => d.file.kind === "python");
   if (!needs) return null;
   if (!python) throw new ProtocolFailure("invalid_system", "This System has Python Blocks but the Project's Python environment is not ready");
-  return new PythonHost(python);
+  const host = new PythonHost(python);
+  abort?.addEventListener("abort", () => host.kill(new ProtocolFailure("cancelled", "Analysis cancelled")), { once: true });
+  return host;
 }
 
 async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: PythonHost, signal: SampledSignal | null = null): Promise<TimeAnalysisResult> {
@@ -87,6 +90,7 @@ async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: 
       return v;
     });
   } catch (e) {
+    if (e instanceof ProtocolFailure) throw e;
     throw new ProtocolFailure("invalid_system", `Simulation failed: ${(e as Error).message}`);
   }
   const series: Record<string, number[]> = { [input]: Array.from(u) };

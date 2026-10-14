@@ -93,6 +93,8 @@ export const PythonConfig = z.object({
   version: z.string().optional(),
   /** Requirement specifiers, e.g. "numpy>=2", "scipy". */
   dependencies: z.array(z.string()).default([]),
+  /** Longest a Python Block may take to answer one call before its Analysis is stopped (s). */
+  callTimeoutS: z.number().positive().optional(),
 });
 export type PythonConfig = z.infer<typeof PythonConfig>;
 

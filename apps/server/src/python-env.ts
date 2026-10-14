@@ -31,6 +31,9 @@ function declarationHash(cfg: PythonConfig): string {
  * declared dependencies → requirements.lock (pinned) → .venv. One sync runs at a time;
  * requests during a sync are coalesced into one follow-up run.
  */
+/** Default for `python.callTimeoutS` in project.yaml. */
+const DEFAULT_CALL_TIMEOUT_S = 30;
+
 export class PythonEnvironment {
   private status: PythonStatus;
   private running: Promise<void> | null = null;
@@ -52,6 +55,11 @@ export class PythonEnvironment {
 
   get python(): string | null {
     return this.status.state === "ready" ? venvPython(this.projectPath) : null;
+  }
+
+  /** Longest one Python Block call may take (ms). */
+  get callTimeoutMs(): number {
+    return (this.config?.callTimeoutS ?? DEFAULT_CALL_TIMEOUT_S) * 1000;
   }
 
   /** Runs a sync if needed and resolves when the environment is settled (ready, failed or absent). */

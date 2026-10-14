@@ -124,6 +124,13 @@ client.connect();
 export const useProgress = create<Record<string, { done: number; total: number }>>(() => ({}));
 client.on("analysis.progress", (p) => useProgress.setState({ [p.id]: { done: p.done, total: p.total } }));
 
+/** Characters of Python Block output kept for display. */
+const PYTHON_OUTPUT_CHARS = 20000;
+/** Recent text Python Blocks wrote (print, warnings, tracebacks), newest last. */
+export const usePythonOutput = create<{ text: string; clear(): void }>((set) => ({ text: "", clear: () => set({ text: "" }) }));
+client.on("python.output", ({ text }) => usePythonOutput.setState((s) => ({ text: (s.text + text).slice(-PYTHON_OUTPUT_CHARS) })));
+client.on("project.changed", () => usePythonOutput.setState({ text: "" }));
+
 export async function refreshModels(): Promise<void> {
   const [blocks, systems] = await Promise.all([client.request("blocks.list", {}), client.request("systems.list", {})]);
   useSession.setState({ blocks, systems });
