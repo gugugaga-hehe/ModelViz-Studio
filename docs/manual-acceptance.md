@@ -26,3 +26,4 @@ Automated tests cover everything through Seam A and Seam B with Virtual Devices,
 - [ ] With the board running, "Read all from Device" in the Device Parameters view lists every Device Parameter the firmware exposes, with no missing indices.
 - [ ] Writing a Device Parameter shows "Acknowledged by the Device"; reading it back (or rebooting, if the firmware persists parameters) shows the new value.
 - [ ] Writing a value the firmware refuses shows "Refused" with the value the Device kept.
+- [ ] Push with Parameter Mappings: the review shows the board's current values next to the proposed ones; Cancel leaves the board unchanged; confirming writes only the changed Device Parameters and shows a result for each.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ParameterType } from "./parameters.ts";
+import { ParameterMapping, ParameterType } from "./parameters.ts";
 
 /** Version of the on-disk Project format. Bump when the layout of a Project folder changes. */
 export const PROJECT_SCHEMA_VERSION = 1;
@@ -101,6 +101,8 @@ export const ProjectManifest = z.object({
   name: z.string().min(1),
   devices: z.array(DeviceConfig).default([]),
   python: PythonConfig.optional(),
+  /** Block Parameter ↔ Device Parameter pairs used by Push. */
+  parameterMappings: z.array(ParameterMapping).default([]),
 });
 export type ProjectManifest = z.infer<typeof ProjectManifest>;
 

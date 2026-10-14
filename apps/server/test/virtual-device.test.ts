@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { benchProject, collectSamples, harness } from "./harness.ts";
+import { benchProject, collectSamples, editYaml, harness } from "./harness.ts";
 
 describe("Virtual Device → live Signals (MAVLink2)", () => {
   it("loads the Frame Format from the Project and lists its Devices and Signals", async () => {
@@ -70,12 +70,12 @@ describe("Virtual Device → live Signals (MAVLink2)", () => {
     await using h = await harness();
     const c = await h.client();
     const { path } = await benchProject(h, c);
-    const manifest = await readFile(join(path, "project.yaml"), "utf8");
-    const second = manifest
-      .slice(manifest.indexOf("  - id: bench"))
-      .replace("id: bench", "id: bench2")
-      .replace("value: 1 }", "value: 7 }");
-    await writeFile(join(path, "project.yaml"), manifest + second);
+    await editYaml(join(path, "project.yaml"), (doc) => {
+      const second = structuredClone(doc.devices[0]);
+      second.id = "bench2";
+      second.virtual.messages.BENCH_STATE.fields.mode.value = 7;
+      doc.devices.push(second);
+    });
     await c.request("project.open", { path });
     const signals = await c.request("signals.list", {});
     const a = signals.find((x) => x.id === "bench/BENCH_STATE.mode")!;

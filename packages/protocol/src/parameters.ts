@@ -34,3 +34,61 @@ export const ParameterWriteResult = z.object({
   accepted: z.boolean(),
 });
 export type ParameterWriteResult = z.infer<typeof ParameterWriteResult>;
+
+/**
+ * A Parameter Mapping: a Block Parameter of one Block in a System, paired with a Device
+ * Parameter. Its value reaches the Device only through a Push (ADR-0008).
+ */
+export const ParameterMapping = z.object({
+  /** System file, relative to the Project. */
+  system: z.string().min(1),
+  /** System Block name. */
+  block: z.string().min(1),
+  /** Block Parameter name. */
+  parameter: z.string().min(1),
+  device: z.string().min(1),
+  deviceParameter: z.string().min(1),
+});
+export type ParameterMapping = z.infer<typeof ParameterMapping>;
+
+export const MappingInfo = ParameterMapping.extend({
+  /** The Block Parameter's value in the System (override, else the Block's default). */
+  blockValue: z.number().optional(),
+  /** Why the mapping cannot be used right now. */
+  issue: z.string().optional(),
+});
+export type MappingInfo = z.infer<typeof MappingInfo>;
+
+export const PushEntry = z.object({
+  mapping: ParameterMapping,
+  /** Value the Block Parameter would write. */
+  proposed: z.number().nullable(),
+  /** Value the Device holds now. */
+  current: DeviceParameter.nullable(),
+  /** changed: will be written · unchanged: Device already holds it · invalid / unavailable: not written. */
+  status: z.enum(["changed", "unchanged", "invalid", "unavailable"]),
+  message: z.string().optional(),
+});
+export type PushEntry = z.infer<typeof PushEntry>;
+
+/** The differences a Push would write; nothing has been written yet. */
+export const PushPreview = z.object({
+  id: z.string(),
+  device: z.string(),
+  entries: z.array(PushEntry),
+});
+export type PushPreview = z.infer<typeof PushPreview>;
+
+export const PushOutcome = z.object({
+  mapping: ParameterMapping,
+  proposed: z.number().nullable(),
+  /** acknowledged: Device holds the proposed value · refused: Device kept another value · failed: no answer or error · not written: unchanged or invalid in the preview. */
+  outcome: z.enum(["acknowledged", "refused", "failed", "not_written"]),
+  /** Value the Device reported after the write. */
+  parameter: DeviceParameter.optional(),
+  message: z.string().optional(),
+});
+export type PushOutcome = z.infer<typeof PushOutcome>;
+
+export const PushResult = z.object({ id: z.string(), device: z.string(), results: z.array(PushOutcome) });
+export type PushResult = z.infer<typeof PushResult>;

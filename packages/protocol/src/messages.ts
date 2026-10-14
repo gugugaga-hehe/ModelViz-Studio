@@ -18,7 +18,7 @@ import {
   TimeAnalysisResult,
   ValidationIssue,
 } from "./model.ts";
-import { DeviceParameter, ParameterList, ParameterWriteResult } from "./parameters.ts";
+import { DeviceParameter, MappingInfo, ParameterList, ParameterMapping, ParameterWriteResult, PushPreview, PushResult } from "./parameters.ts";
 import { DeviceInfo, LinkHealth, RecordingInfo, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
@@ -125,6 +125,32 @@ export const Methods = {
   "parameters.write": {
     params: z.object({ device: z.string(), name: z.string().min(1), value: z.number().finite() }),
     result: ParameterWriteResult,
+  },
+  /** The Project's Parameter Mappings, with each Block Parameter's current value. */
+  "mappings.list": {
+    params: z.object({}),
+    result: z.array(MappingInfo),
+  },
+  /** Replace the Project's Parameter Mappings (stored in project.yaml). Never touches the Device. */
+  "mappings.set": {
+    params: z.object({ mappings: z.array(ParameterMapping) }),
+    result: z.array(MappingInfo),
+  },
+  /**
+   * First step of a Push: read the mapped Device Parameters and compare them with the Block
+   * Parameters. Only reads from the Device.
+   */
+  "push.preview": {
+    params: z.object({ device: z.string() }),
+    result: PushPreview,
+  },
+  /**
+   * Second step, after the user confirmed the preview: write exactly the previewed changes.
+   * A preview can be applied once; it is refused if Block Parameters changed since.
+   */
+  "push.apply": {
+    params: z.object({ id: z.string() }),
+    result: PushResult,
   },
   "transports.listSerial": {
     params: z.object({}),

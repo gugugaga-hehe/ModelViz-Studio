@@ -3,6 +3,7 @@ import { Download, RefreshCw, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { PushPanel } from "./PushPanel";
 
 /** Outcome of the last read or write of one Device Parameter. */
 type RowStatus = { kind: "busy" } | { kind: "ack"; action: "read" | "write" } | { kind: "refused"; requested: number } | { kind: "error"; message: string };
@@ -182,6 +183,7 @@ export function ParametersView() {
           </tbody>
         </table>
       )}
+      {device && <PushPanel device={device} reachable={reachable} deviceParameters={params.map((p) => p.name)} />}
     </section>
   );
 }

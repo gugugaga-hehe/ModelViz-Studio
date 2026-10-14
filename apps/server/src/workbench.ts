@@ -28,6 +28,7 @@ import { type OpenedProject, createProject, openProject, updateManifest } from "
 import { LiveSystem } from "./live-system.ts";
 import { DeviceLink } from "./device-link.ts";
 import type { ParameterClient } from "./device-parameters.ts";
+import { PushService, checkMappings, resolveMappings } from "./push.ts";
 import { PythonEnvironment } from "./python-env.ts";
 import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
 import { SignalBus } from "./signal-bus.ts";
@@ -70,6 +71,8 @@ export class Workbench {
   private readonly live = new Map<string, LiveSystem>();
   /** Long-running Analyses by client-chosen id, for cancellation. */
   private readonly jobs = new Map<string, SweepControl>();
+  /** Push previews waiting for confirmation. */
+  private readonly push = new PushService();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
 
   broadcast<E extends EventName>(event: E, data: EventData<E>): void {
@@ -164,6 +167,28 @@ export class Workbench {
     "parameters.write": async (p) => {
       const { device, name, value } = Methods["parameters.write"].params.parse(p);
       return { device, requested: value, ...(await this.parameterClient(device).write(name, value)) };
+    },
+    "mappings.list": async () => this.mappings(),
+    "mappings.set": async (p) => {
+      const { mappings } = Methods["mappings.set"].params.parse(p);
+      const project = this.requireProject();
+      checkMappings(mappings);
+      await updateManifest(project.path, (doc) => {
+        doc.set("parameterMappings", doc.createNode(mappings, { flow: false }));
+      });
+      return this.mappings();
+    },
+    "push.preview": async (p) => {
+      const { device } = Methods["push.preview"].params.parse(p);
+      const client = this.parameterClient(device);
+      return this.push.preview(device, await this.mappings(), client);
+    },
+    "push.apply": async (p) => {
+      const { id } = Methods["push.apply"].params.parse(p);
+      this.requireProject();
+      const preview = this.push.take(id);
+      const client = this.parameterClient(preview.device);
+      return { id, device: preview.device, results: await this.push.apply(preview, await this.mappings(), client) };
     },
     "transports.listSerial": async () => listSerialPorts(),
     "csv.import": async (p) => {
@@ -504,6 +529,13 @@ export class Workbench {
     return source.state();
   }
 
+  /** The Project's Parameter Mappings as stored now in project.yaml, resolved to Block Parameter values. */
+  private async mappings() {
+    const project = this.requireProject();
+    const { manifest } = await openProject(project.path);
+    return resolveMappings(project.path, manifest.parameterMappings, new Set(this.devices.keys()));
+  }
+
   /** Device Parameter access for a Device whose Source is running and can send to the Device. */
   private parameterClient(id: string): ParameterClient {
     const d = this.device(id);
@@ -547,6 +579,7 @@ export class Workbench {
   }
 
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {
+    this.push.clear();
     for (const d of this.devices.values()) d.source?.stop();
     for (const i of this.imports.values()) i.source?.stop();
     if (this.project?.path !== opened.info.path) {
