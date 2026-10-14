@@ -5,9 +5,8 @@ import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { retainSignals, signalStore } from "../state/session";
-import { HISTORY_SECONDS } from "../state/signal-store";
 import { SignalPicker, useSignalsById } from "./panels/SignalPicker";
-import { alignedSince, wheelZoomPanPlugin } from "./plot-data";
+import { alignedWindow, wheelZoomPanPlugin } from "./plot-data";
 
 /** Visible time span of the live plot (seconds). */
 const WINDOW_SECONDS = 10;
@@ -62,8 +61,13 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
   const { t } = useTranslation();
   const host = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
+  /** Re-reads the buffers for the visible x range (set while the plot exists). */
+  const pausedRange = useRef<(() => void) | null>(null);
   const pausedRef = useRef(paused);
   const [samples, setSamples] = useState(0);
+  /** Points handed to the plot in the last update, per Signal (for tests: bounded by the width). */
+  const [points, setPoints] = useState(0);
+  const [frames, setFrames] = useState(0);
   pausedRef.current = paused;
 
   useEffect(() => {
@@ -102,15 +106,38 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
         // Expose the visible range for tests and assistive tooling.
         setScale: [
           (u, key) => {
+            if (key === "y") el.parentElement?.setAttribute("data-y-span", ((u.scales.y!.max ?? 0) - (u.scales.y!.min ?? 0)).toFixed(3));
             if (key !== "x") return;
             const span = (u.scales.x!.max ?? 0) - (u.scales.x!.min ?? 0);
             el.parentElement?.setAttribute("data-x-span", span.toFixed(3));
+            // paused: zooming or panning re-reads the buffer for the new range at full detail
+            if (pausedRef.current) scheduleRange();
           },
         ],
       },
     };
     const plot = new uPlot(opts, [[], ...signals.map(() => [])], el);
     plotRef.current = plot;
+    const buffers = signals.map((s) => signalStore.buffer(s.handle));
+    /** One envelope column per device pixel of the plotting area. */
+    const columns = () => Math.max(16, Math.round(plot.bbox.width || el.clientWidth * devicePixelRatio));
+    const show = (data: uPlot.AlignedData, resetScales: boolean) => {
+      plot.setData(data, resetScales);
+      setPoints(data[1]?.length ?? 0);
+      setFrames((f) => f + 1);
+    };
+    // While paused, the visible range plus one span either side, so panning has data at once.
+    let rangeRaf = 0;
+    function scheduleRange() {
+      cancelAnimationFrame(rangeRaf);
+      rangeRaf = requestAnimationFrame(() => {
+        const { min, max } = plot.scales.x!;
+        if (min === undefined || max === undefined) return;
+        const span = max - min;
+        show(alignedWindow(buffers, (min - span) * 1000, (max + span) * 1000, columns() * 3), false);
+      });
+    }
+    pausedRange.current = scheduleRange;
     const resize = new ResizeObserver(() => plot.setSize({ width: el.clientWidth, height: Math.max(160, el.clientHeight - 40) }));
     resize.observe(el);
 
@@ -121,32 +148,32 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
       raf = requestAnimationFrame(frame);
       if (pausedRef.current || now - last < MIN_FRAME_MS) return;
       last = now;
-      const buffers = signals.map((s) => signalStore.buffer(s.handle));
       const received = buffers.reduce((n, b) => n + b.received, 0);
       if (received === lastReceived) return;
       lastReceived = received;
       const newest = Math.max(...buffers.map((b) => b.latestTime() ?? 0));
-      plot.setData(alignedSince(buffers, newest - WINDOW_SECONDS * 1000));
+      show(alignedWindow(buffers, newest - WINDOW_SECONDS * 1000, newest, columns()), true);
       setSamples(received);
     };
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(rangeRaf);
+      pausedRange.current = null;
       resize.disconnect();
       plot.destroy();
       plotRef.current = null;
     };
   }, [signals]);
 
-  // On pause, load the whole buffered history but keep showing the current window.
+  // On pause, keep showing the current window; zooming and panning then load data for the range shown.
   useEffect(() => {
     const plot = plotRef.current;
     if (!plot || !paused) return;
-    const buffers = signals.map((s) => signalStore.buffer(s.handle));
-    const newest = Math.max(...buffers.map((b) => b.latestTime() ?? 0));
+    const newest = Math.max(...signals.map((s) => signalStore.buffer(s.handle).latestTime() ?? 0));
     const xMax = newest / 1000;
-    plot.setData(alignedSince(buffers, newest - HISTORY_SECONDS * 1000), false);
     plot.setScale("x", { min: xMax - WINDOW_SECONDS, max: xMax });
+    pausedRange.current?.();
   }, [paused, signals]);
 
   return (
@@ -154,6 +181,8 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
       className="relative min-h-40 min-w-0 flex-1"
       data-testid="time-plot"
       data-samples={samples}
+      data-points={points}
+      data-frames={frames}
       data-paused={paused}
       title={paused ? t("plot.pausedHint") : undefined}
     >

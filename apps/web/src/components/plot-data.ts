@@ -2,18 +2,19 @@ import uPlot from "uplot";
 import type { SignalBuffer } from "../state/signal-store";
 
 /**
- * Builds uPlot data for several Signals since `fromMs`. Signals decoded from the same Message
- * share timestamps exactly, so the common case skips the (costly) union-join.
+ * uPlot data for several Signals in [fromMs, toMs], each reduced to a min/max envelope of about
+ * `columns` columns (see SignalBuffer.window). Signals decoded from the same Message share
+ * timestamps exactly, so the common case skips the (costly) union-join.
  */
-export function alignedSince(buffers: SignalBuffer[], fromMs: number): uPlot.AlignedData {
-  const tables = buffers.map((b) => b.since(fromMs));
+export function alignedWindow(buffers: SignalBuffer[], fromMs: number, toMs: number, columns: number): uPlot.AlignedData {
+  const tables = buffers.map((b) => b.window(fromMs, toMs, columns));
   if (tables.length === 0) return [[]];
   const [first] = tables;
   const sameX = tables.every(
-    ([xs]) => xs.length === first![0].length && xs[0] === first![0][0] && xs[xs.length - 1] === first![0][first![0].length - 1],
+    ({ xs }) => xs.length === first!.xs.length && xs[0] === first!.xs[0] && xs[xs.length - 1] === first!.xs[first!.xs.length - 1],
   );
-  if (sameX) return [first![0], ...tables.map(([, ys]) => ys)];
-  return uPlot.join(tables as uPlot.AlignedData[]);
+  if (sameX) return [first!.xs, ...tables.map(({ ys }) => ys)];
+  return uPlot.join(tables.map(({ xs, ys }) => [xs, ys]) as uPlot.AlignedData[]);
 }
 
 /** Mouse-wheel zoom around the cursor and Shift+drag pan on the x axis. */

@@ -65,6 +65,16 @@ test("pauses, zooms and resumes live time plots with synchronised cursors", asyn
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     for (let i = 0; i < 6; i++) await page.mouse.wheel(0, -200);
     await expect.poll(span).toBeLessThan(before / 2);
+    // the zoomed range is read again from the buffer, and nothing redraws once it settles
+    const frames = async () => Number(await plot1.getAttribute("data-frames"));
+    let settled = await frames();
+    await page.waitForTimeout(300);
+    expect(await frames()).toBe(settled);
+    await page.mouse.wheel(0, -200);
+    await expect.poll(frames).toBeGreaterThan(settled);
+    settled = await frames();
+    await page.waitForTimeout(300);
+    expect(await frames()).toBe(settled);
 
     // resume continues live updates
     await p1.getByRole("button", { name: "Resume" }).click();
