@@ -45,6 +45,11 @@ export class SignalBuffer {
     return this.times[(this.head + this.length - 1) % CAPACITY]!;
   }
 
+  latestValue(): number | null {
+    if (!this.length) return null;
+    return this.values[(this.head + this.length - 1) % CAPACITY]!;
+  }
+
   clear(): void {
     this.head = 0;
     this.length = 0;

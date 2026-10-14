@@ -329,5 +329,20 @@
       "not_written": "Not written"
     },
     "before": "Before Push"
+  },
+  "panels": {
+    "addXy": "Add XY plot",
+    "addTable": "Add table",
+    "xyTitle": "XY plot {{n}}",
+    "tableTitle": "Table {{n}}",
+    "xSignal": "X Signal",
+    "ySignal": "Y Signal",
+    "noSignal": "— none —",
+    "pickXy": "Select an X and a Y Signal",
+    "pickTable": "Select Signals to show their latest values",
+    "signal": "Signal",
+    "latest": "Latest value",
+    "units": "Units",
+    "empty": "No Panels. Add one with the buttons above; drag tabs to dock and split Panels."
   }
 }

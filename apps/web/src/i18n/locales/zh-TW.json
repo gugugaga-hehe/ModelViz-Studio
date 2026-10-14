@@ -329,5 +329,20 @@
       "not_written": "未寫入"
     },
     "before": "Push 前的值"
+  },
+  "panels": {
+    "addXy": "新增 XY 圖",
+    "addTable": "新增表格",
+    "xyTitle": "XY 圖 {{n}}",
+    "tableTitle": "表格 {{n}}",
+    "xSignal": "X Signal",
+    "ySignal": "Y Signal",
+    "noSignal": "— 無 —",
+    "pickXy": "請選擇 X 與 Y 的 Signal",
+    "pickTable": "選擇 Signal 以顯示最新值",
+    "signal": "Signal",
+    "latest": "最新值",
+    "units": "單位",
+    "empty": "沒有 Panel。用上方按鈕新增；拖曳分頁即可停靠與分割 Panel。"
   }
 }

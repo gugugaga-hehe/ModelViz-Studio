@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import { PROJECT_MANIFEST, PROJECT_SCHEMA_VERSION, ProjectManifest, type ProjectInfo, type ProjectTemplate } from "@modelviz/protocol";
+import { LAYOUT_FILE, PROJECT_MANIFEST, PROJECT_SCHEMA_VERSION, PanelLayout, ProjectManifest, type ProjectInfo, type ProjectTemplate } from "@modelviz/protocol";
 import { type Document, parse, parseDocument, stringify } from "yaml";
 import { ProtocolFailure } from "./errors.ts";
 import { templateFiles, writeTemplate } from "./templates.ts";
@@ -73,4 +73,21 @@ export async function updateManifest(projectPath: string, edit: (doc: Document) 
   const doc = parseDocument(await readFile(path, "utf8"));
   edit(doc);
   await writeFile(path, doc.toString());
+}
+
+/** The Project's Panel layout; null when there is none or it cannot be read (the UI then starts fresh). */
+export async function readLayout(projectPath: string): Promise<PanelLayout | null> {
+  let text: string;
+  try {
+    text = await readFile(join(projectPath, LAYOUT_FILE), "utf8");
+  } catch {
+    return null;
+  }
+  const parsed = PanelLayout.safeParse(parse(text));
+  return parsed.success ? parsed.data : null;
+}
+
+export async function writeLayout(projectPath: string, layout: PanelLayout): Promise<void> {
+  const header = "# Panel layout of this Project, saved by ModelViz Studio.\n";
+  await writeFile(join(projectPath, LAYOUT_FILE), header + stringify(layout));
 }
