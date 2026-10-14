@@ -16,8 +16,14 @@ const INTEGER_RANGE: Partial<Record<ParameterType, [number, number]>> = {
 };
 
 /** The value a Device of this type ends up storing. */
-function stored(type: ParameterType, value: number): number {
+export function stored(type: ParameterType, value: number): number {
   return type === "float" ? Math.fround(value) : value;
+}
+
+/** Whether a value can be stored in a Device Parameter of this type without changing it. */
+export function representable(type: ParameterType, value: number): boolean {
+  const range = INTEGER_RANGE[type];
+  return Number.isFinite(value) && (!range || (Number.isInteger(value) && value >= range[0] && value <= range[1]));
 }
 
 /**
@@ -58,8 +64,7 @@ export class ParameterClient {
   async write(name: string, value: number): Promise<{ parameter: DeviceParameter; accepted: boolean }> {
     this.checkName(name);
     const type = (this.known.get(name) ?? (await this.read(name))).type;
-    const range = INTEGER_RANGE[type];
-    if (range && !(Number.isInteger(value) && value >= range[0] && value <= range[1])) {
+    if (!representable(type, value)) {
       throw new ProtocolFailure("invalid_params", `${name} is ${type}: ${value} is not a valid value`);
     }
     await this.exchange(() => this.protocol.requestWrite(this.target, name, value, type), (r) => r.name === name, `writing ${name}`);

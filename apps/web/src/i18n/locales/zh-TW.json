@@ -291,5 +291,43 @@
     "readOk": "已從 Device 讀取",
     "refused": "被拒絕：要求 {{requested}}，Device 保留 {{value}}",
     "notANumber": "請輸入數字"
+  },
+  "push": {
+    "mappings": "Parameter Mapping",
+    "push": "Push…",
+    "explain": "Push 會在你檢視差異後，把對應的 Block Parameter 值寫入 Device。沒有你的確認，什麼都不會寫入。",
+    "system": "System",
+    "block": "Block",
+    "blockParameter": "Block Parameter",
+    "value": "值",
+    "deviceParameter": "Device Parameter",
+    "remove": "移除對應",
+    "add": "新增對應",
+    "save": "儲存對應",
+    "unsaved": "尚未儲存",
+    "reviewTitle": "檢視要 Push 到 {{device}} 的差異",
+    "resultTitle": "Push 到 {{device}}：結果",
+    "reviewExplain": "只有變更的 Device Parameter 會被寫入。目前尚未寫入任何值。",
+    "onDevice": "Device 上的值",
+    "proposed": "建議值",
+    "status": "差異",
+    "outcome": "結果",
+    "cancel": "取消",
+    "close": "關閉",
+    "confirm_one": "寫入 {{count}} 項變更到 Device",
+    "confirm_other": "寫入 {{count}} 項變更到 Device",
+    "statuses": {
+      "changed": "將寫入",
+      "unchanged": "未變更",
+      "invalid": "無法寫入",
+      "unavailable": "無法取得"
+    },
+    "outcomes": {
+      "acknowledged": "已確認（{{value}}）",
+      "refused": "被拒絕：Device 保留 {{value}}",
+      "failed": "失敗",
+      "not_written": "未寫入"
+    },
+    "before": "Push 前的值"
   }
 }

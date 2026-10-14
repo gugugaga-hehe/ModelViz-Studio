@@ -54,6 +54,11 @@ const VIRTUAL_BENCH_DEVICES = `devices:
             gyro_x: { kind: sine, freqHz: 7, amplitude: 1 }
             gyro_y: { kind: sine, freqHz: 11, amplitude: 0.5 }
             gyro_z: { kind: sine, freqHz: 13, amplitude: 0.25 }
+# Block Parameters a Push may write to Device Parameters. Values only move on a confirmed Push.
+parameterMappings:
+  - { system: systems/rate_loop.yaml, block: controller, parameter: Kp, device: bench, deviceParameter: RATE_KP }
+  - { system: systems/rate_loop.yaml, block: controller, parameter: Ki, device: bench, deviceParameter: RATE_KI }
+  - { system: systems/rate_loop.yaml, block: sensor, parameter: fc, device: bench, deviceParameter: GYRO_LPF_HZ }
 `;
 
 const VIRTUAL_BENCH_FILES: Record<string, string> = {

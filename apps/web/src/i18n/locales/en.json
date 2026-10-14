@@ -291,5 +291,43 @@
     "readOk": "Read from the Device",
     "refused": "Refused: requested {{requested}}, Device kept {{value}}",
     "notANumber": "Enter a number"
+  },
+  "push": {
+    "mappings": "Parameter Mappings",
+    "push": "Push…",
+    "explain": "Push writes mapped Block Parameter values to the Device after you review the differences. Nothing is written without your confirmation.",
+    "system": "System",
+    "block": "Block",
+    "blockParameter": "Block Parameter",
+    "value": "Value",
+    "deviceParameter": "Device Parameter",
+    "remove": "Remove mapping",
+    "add": "Add mapping",
+    "save": "Save mappings",
+    "unsaved": "Unsaved changes",
+    "reviewTitle": "Review Push to {{device}}",
+    "resultTitle": "Push to {{device}}: results",
+    "reviewExplain": "Only the changed Device Parameters will be written. Nothing has been written yet.",
+    "onDevice": "On Device",
+    "proposed": "Proposed",
+    "status": "Difference",
+    "outcome": "Result",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm_one": "Write {{count}} change to Device",
+    "confirm_other": "Write {{count}} changes to Device",
+    "statuses": {
+      "changed": "Will be written",
+      "unchanged": "Unchanged",
+      "invalid": "Not writable",
+      "unavailable": "Unavailable"
+    },
+    "outcomes": {
+      "acknowledged": "Acknowledged ({{value}})",
+      "refused": "Refused: Device kept {{value}}",
+      "failed": "Failed",
+      "not_written": "Not written"
+    },
+    "before": "Before Push"
   }
 }
