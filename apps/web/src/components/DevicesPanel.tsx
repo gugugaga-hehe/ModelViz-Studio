@@ -1,14 +1,26 @@
-import { Cpu, Play, Square } from "lucide-react";
+import type { SourceState } from "@modelviz/protocol";
+import { Cable, Cpu, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { ConnectForm } from "./ConnectForm";
 import { LinkHealthView } from "./LinkHealthView";
+
+const STATE_COLOR: Record<SourceState["state"], string> = {
+  connecting: "text-warn",
+  verifying: "text-warn",
+  running: "text-ok",
+  lost: "text-danger",
+  rejected: "text-danger",
+  stopped: "text-muted",
+};
 
 export function DevicesPanel() {
   const { t } = useTranslation();
   const devices = useSession((s) => s.devices);
   const sources = useSession((s) => s.sources);
   const health = useSession((s) => s.health);
+  const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function run(fn: () => Promise<unknown>) {
@@ -28,34 +40,60 @@ export function DevicesPanel() {
       {devices.length === 0 && <p className="text-sm text-muted">{t("devices.none")}</p>}
       <ul className="flex flex-col gap-2">
         {devices.map((d) => {
-          const running = sources[d.id]?.state === "running";
+          const source = sources[d.id];
+          const active = source && source.state !== "stopped" && source.state !== "rejected";
+          const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent";
           return (
             <li key={d.id} className="rounded border border-border bg-bg p-2 text-sm" data-testid={`device-${d.id}`}>
               <div className="flex items-center gap-2">
                 <Cpu size={14} className="text-muted" />
                 <span className="font-medium">{d.id}</span>
-                {running && <span className="ml-auto text-xs text-ok">{t("devices.running")}</span>}
+                {source && source.state !== "stopped" && (
+                  <span className={`ml-auto text-xs ${STATE_COLOR[source.state]}`} data-testid="source-state">
+                    {t(`source.${source.state}`)}
+                    {source.kind !== "virtual" && source.transport ? ` · ${source.kind.toUpperCase()}` : ""}
+                  </span>
+                )}
               </div>
               <div className="truncate text-xs text-muted" title={d.frameFormat}>
                 {d.frameFormat}
               </div>
-              {d.error && <p className="mt-1 text-xs text-danger">{d.error}</p>}
-              {health[d.id] && <LinkHealthView health={health[d.id]!} />}
-              {d.virtual && !d.error && (
-                <button
-                  className="mt-2 inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent"
-                  onClick={() =>
-                    run(() =>
-                      running
-                        ? client.request("source.stop", { device: d.id })
-                        : client.request("source.startVirtual", { device: d.id }),
-                    )
-                  }
-                >
-                  {running ? <Square size={12} /> : <Play size={12} />}
-                  {t(running ? "devices.stop" : "devices.startVirtual")}
-                </button>
+              {d.dialectHash && (
+                <div className="text-xs text-muted">
+                  {t("devices.dialectHash")}: <code className="select-all">{d.dialectHash}</code>
+                </div>
               )}
+              {d.error && <p className="mt-1 text-xs text-danger">{d.error}</p>}
+              {source?.error && (
+                <p role="alert" className="mt-1 text-xs text-danger">
+                  {source.error}
+                </p>
+              )}
+              {health[d.id] && active && <LinkHealthView health={health[d.id]!} />}
+              {!d.error && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {active ? (
+                    <button className={btn} onClick={() => run(() => client.request("source.stop", { device: d.id }))}>
+                      <Square size={12} />
+                      {t("devices.stop")}
+                    </button>
+                  ) : (
+                    <>
+                      <button className={btn} onClick={() => setConnecting(connecting === d.id ? null : d.id)}>
+                        <Cable size={12} />
+                        {t("devices.connect")}
+                      </button>
+                      {d.virtual && (
+                        <button className={btn} onClick={() => run(() => client.request("source.startVirtual", { device: d.id }))}>
+                          <Play size={12} />
+                          {t("devices.startVirtual")}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+              {connecting === d.id && !active && <ConnectForm device={d} onDone={() => setConnecting(null)} />}
             </li>
           );
         })}

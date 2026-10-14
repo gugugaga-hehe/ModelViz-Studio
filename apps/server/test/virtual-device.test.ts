@@ -10,7 +10,7 @@ describe("Virtual Device → live Signals (MAVLink2)", () => {
     const { signals, path } = await benchProject(h, c);
     expect(await readFile(join(path, "frame-formats/bench.yaml"), "utf8")).toContain("framing: mavlink2");
     expect(await c.request("devices.list", {})).toEqual([
-      { id: "bench", frameFormat: "frame-formats/bench.yaml", virtual: true },
+      { id: "bench", frameFormat: "frame-formats/bench.yaml", virtual: true, dialectHash: expect.stringMatching(/^[0-9a-f]{8}$/) },
     ]);
     const ids = signals.map((s) => s.id);
     expect(ids).toEqual(
@@ -98,9 +98,9 @@ describe("Virtual Device → live Signals (MAVLink2)", () => {
     const time = byId("bench/BENCH_STATE.time_us");
     await c.request("signals.subscribe", { ids: [time.id] });
     await c.request("source.startVirtual", { device: "bench" });
-    expect(await c.request("sources.list", {})).toEqual([{ device: "bench", kind: "virtual", state: "running" }]);
     await expect(c.request("source.startVirtual", { device: "bench" })).rejects.toMatchObject({ code: "conflict" });
     await collectSamples(c, [time.handle], (m) => m.get(time.handle)!.values.length > 0);
+    expect(await c.request("sources.list", {})).toEqual([{ device: "bench", kind: "virtual", state: "running" }]);
     await c.request("source.stop", { device: "bench" });
     await new Promise((r) => setTimeout(r, 100));
     let after = 0;
@@ -108,7 +108,7 @@ describe("Virtual Device → live Signals (MAVLink2)", () => {
     await new Promise((r) => setTimeout(r, 200));
     off();
     expect(after).toBe(0);
-    expect(changes).toEqual(["bench:running", "bench:stopped"]);
+    expect(changes).toEqual(["bench:verifying", "bench:running", "bench:stopped"]);
     expect(await c.request("sources.list", {})).toEqual([]);
   });
 

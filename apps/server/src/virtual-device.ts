@@ -22,6 +22,8 @@ interface MessagePlan {
   fields: FieldPlan[];
   /** Interval between batched samples (ms). */
   sampleIntervalMs: number;
+  /** Field auto-filled with the correct dialect hash. */
+  dialectHashField?: { field: string; value: number };
 }
 
 function evaluate(gen: FieldGenerator, index: number, tSeconds: number): number {
@@ -64,11 +66,13 @@ export class VirtualDevice {
     this.plans = Object.entries(config.messages).map(([name, m]) => {
       const spec = format.messages.find((s) => s.name === name);
       if (!spec) throw new Error(`Virtual Device emits unknown Message ${name}`);
-      const auto = new Set([spec.deviceTimestamp?.field, spec.batch?.intervalField?.field].filter(Boolean));
+      const check = format.dialectCheck?.message === name ? format.dialectCheck.field : undefined;
+      const auto = new Set([spec.deviceTimestamp?.field, spec.batch?.intervalField?.field, check].filter(Boolean));
       const numeric = spec.fields.filter((f) => f.numeric && !(auto.has(f.name) && !m.fields[f.name]));
       const batchLength = spec.batch?.length ?? 1;
       return {
         spec,
+        ...(check && !m.fields[check] ? { dialectHashField: { field: check, value: parseInt(format.dialectHash, 16) } } : {}),
         rateHz: m.rateHz,
         emitted: 0,
         sampleIntervalMs: spec.batch?.intervalMs ?? 1000 / (m.rateHz * batchLength),
@@ -104,6 +108,7 @@ export class VirtualDevice {
     if (ts) values[ts.field] = frameTimeMs / ts.toMs;
     const iv = p.spec.batch?.intervalField;
     if (iv) values[iv.field] = p.sampleIntervalMs / iv.toMs;
+    if (p.dialectHashField) values[p.dialectHashField.field] = p.dialectHashField.value;
     for (const f of p.fields) {
       if (f.batched) {
         values[f.name] = Array.from({ length: f.arrayLength }, (_, i) => {

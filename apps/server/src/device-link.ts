@@ -19,6 +19,13 @@ export interface SignalTarget {
 
 export type Publish = (handle: number, time: number, value: number, hostTime: number | null) => void;
 
+export interface DialectVerification {
+  check: { message: string; field: string };
+  expectedHash: string;
+  /** Called once per verification round with the outcome and the hash the Device sent. */
+  onResult(ok: boolean, received: string): void;
+}
+
 interface MessageMonitor {
   frames: number;
   framesInWindow: number;
@@ -40,20 +47,38 @@ export class DeviceLink {
   private clockOffset: number | null = null;
   private lastDeviceMs = -Infinity;
   private windowStart = performance.now();
+  /** null: no check configured or passed; "pending": waiting; "failed": mismatch, ignore everything. */
+  private verification: "pending" | "failed" | null;
 
   constructor(
     readonly device: string,
     format: FrameFormat,
     private readonly targets: Map<string, SignalTarget[]>,
     private readonly publish: Publish,
+    private readonly verify?: DialectVerification,
   ) {
+    this.verification = verify ? "pending" : null;
     this.decoder = format.createDecoder();
     this.specs = new Map(format.messages.map((m) => [m.name, m]));
+  }
+
+  /** Require the dialect hash again, e.g. after reconnecting to a possibly reflashed Device. */
+  reverify(): void {
+    if (this.verify) this.verification = "pending";
   }
 
   ingest(bytes: Uint8Array): void {
     const hostTime = Date.now();
     for (const msg of this.decoder.push(bytes)) {
+      if (this.verification === "failed") return;
+      if (this.verification === "pending") {
+        const { check, expectedHash, onResult } = this.verify!;
+        if (msg.message !== check.message) continue;
+        const received = (Number(msg.values[check.field]) >>> 0).toString(16).padStart(8, "0");
+        this.verification = received === expectedHash ? null : "failed";
+        onResult(received === expectedHash, received);
+        if (this.verification === "failed") return;
+      }
       const spec = this.specs.get(msg.message);
       const targets = this.targets.get(msg.message);
       if (!spec) continue;

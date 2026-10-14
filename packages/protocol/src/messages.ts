@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { ProjectInfo, ProjectTemplate } from "./project.ts";
-import { DeviceInfo, LinkHealth, SignalInfo, SourceState } from "./signals.ts";
+import { ProjectInfo, ProjectTemplate, TransportConfig } from "./project.ts";
+import { DeviceInfo, LinkHealth, SerialPortInfo, SignalInfo, SourceState } from "./signals.ts";
 
 /**
  * Version of the client protocol. Client and server must agree exactly;
@@ -79,6 +79,15 @@ export const Methods = {
   "source.startVirtual": {
     params: z.object({ device: z.string() }),
     result: SourceState,
+  },
+  /** Connect to the real Device over a Transport; reconnects automatically when the link drops. */
+  "source.connect": {
+    params: z.object({ device: z.string(), transport: TransportConfig }),
+    result: SourceState,
+  },
+  "transports.listSerial": {
+    params: z.object({}),
+    result: z.array(SerialPortInfo),
   },
   "source.stop": {
     params: z.object({ device: z.string() }),
