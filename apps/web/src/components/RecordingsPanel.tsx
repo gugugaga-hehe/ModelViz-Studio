@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
 import { formatBytes, formatDuration } from "./format";
 import { ReplayControls } from "./ReplayControls";
+import { Button, Input, Select } from "./ui/controls";
 
 export function RecordingsPanel() {
   const { t } = useTranslation();
@@ -29,13 +30,15 @@ export function RecordingsPanel() {
         <h2 id="recordings-heading" className="text-xs font-semibold uppercase tracking-wide text-muted">
           {t("recordings.heading")}
         </h2>
-        <button
+        <Button
           onClick={() => setImporting((x) => !x)}
-          className="ml-auto inline-flex items-center gap-1 rounded px-1 text-xs text-muted hover:text-fg"
+          variant="subtle"
+          size="inline"
+          className="ml-auto text-xs"
         >
           <FileUp size={12} />
           {t("csv.import")}
-        </button>
+        </Button>
       </div>
       {importing && <CsvImportForm onDone={() => setImporting(false)} />}
       {recordings.length === 0 && <p className="text-sm text-muted">{t("recordings.none")}</p>}
@@ -53,17 +56,17 @@ export function RecordingsPanel() {
               </div>
             </div>
             {!r.active && (
-              <button
+              <Button
                 disabled={busy(r.device)}
                 onClick={() => {
                   setError(null);
                   client.request("source.startReplay", { device: r.device, recording: r.id }).catch((e: Error) => setError(e.message));
                 }}
                 aria-label={t("recordings.replay", { id: r.id })}
-                className="rounded border border-border p-1 disabled:opacity-40"
+                size="icon"
               >
                 <Play size={12} />
-              </button>
+              </Button>
             )}
             </div>
             {replayOf(r) && <ReplayControls source={replayOf(r)!} />}
@@ -86,7 +89,6 @@ function CsvImportForm({ onDone }: { onDone: () => void }) {
   const [timeColumn, setTimeColumn] = useState("");
   const [timeUnit, setTimeUnit] = useState<"s" | "ms" | "us">("s");
   const [error, setError] = useState<string | null>(null);
-  const input = "w-full rounded border border-border bg-surface px-2 py-1 text-xs";
   return (
     <form
       aria-label={t("csv.title")}
@@ -101,29 +103,29 @@ function CsvImportForm({ onDone }: { onDone: () => void }) {
     >
       <label className="flex flex-col gap-1">
         {t("csv.path")}
-        <input className={input} value={path} onChange={(e) => setPath(e.target.value)} required placeholder="/home/me/log.csv" />
+        <Input className="w-full" value={path} onChange={(e) => setPath(e.target.value)} required placeholder="/home/me/log.csv" />
       </label>
       <label className="flex flex-col gap-1">
         {t("csv.name")}
-        <input className={input} value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
+        <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
       </label>
       <div className="flex gap-1">
         <label className="flex flex-[2] flex-col gap-1">
           {t("csv.timeColumn")}
-          <input className={input} value={timeColumn} onChange={(e) => setTimeColumn(e.target.value)} placeholder={t("csv.firstColumn")} />
+          <Input className="w-full" value={timeColumn} onChange={(e) => setTimeColumn(e.target.value)} placeholder={t("csv.firstColumn")} />
         </label>
         <label className="flex flex-1 flex-col gap-1">
           {t("csv.timeUnit")}
-          <select className={input} value={timeUnit} onChange={(e) => setTimeUnit(e.target.value as "s" | "ms" | "us")}>
+          <Select className="w-full" value={timeUnit} onChange={(e) => setTimeUnit(e.target.value as "s" | "ms" | "us")}>
             <option value="s">s</option>
             <option value="ms">ms</option>
             <option value="us">µs</option>
-          </select>
+          </Select>
         </label>
       </div>
-      <button type="submit" className="rounded bg-accent px-2 py-1 font-medium text-white">
+      <Button type="submit" variant="primary">
         {t("csv.submit")}
-      </button>
+      </Button>
       {error && (
         <p role="alert" className="text-danger">
           {error}

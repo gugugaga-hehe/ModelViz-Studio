@@ -8,6 +8,7 @@ import { client, signalStore } from "../../state/session";
 import { resolveColor, seriesColor, usePlotTheme } from "../plot-theme";
 import { useRetained } from "../TimePlotPanel";
 import { SignalSelect, useSignalsById } from "./SignalPicker";
+import { Button, Input, Select } from "../ui/controls";
 
 export type SpectrumScale = "amplitude" | "psd";
 export interface SpectrumSettings {
@@ -29,7 +30,6 @@ export function SpectrumPanel({ n, settings, onChange }: { n: number; settings: 
   useRetained(signals);
   const [held, setHeld] = useState(false);
   const title = t("panels.fftTitle", { n });
-  const select = "rounded border border-border bg-surface px-2 py-1 text-sm text-fg";
   const label = "flex flex-col gap-1 text-xs text-muted";
   return (
     <section aria-label={title} data-testid={`spectrum-panel-${n - 1}`} className="@container h-full min-h-0 bg-surface p-3">
@@ -37,42 +37,43 @@ export function SpectrumPanel({ n, settings, onChange }: { n: number; settings: 
         <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-            <button
+            <Button
               onClick={() => setHeld((h) => !h)}
               disabled={!signals.length}
-              className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
+              size="xs"
+              className="ml-auto"
             >
               {held ? <Play size={12} /> : <Pause size={12} />}
               {t(held ? "plot.resume" : "panels.hold")}
-            </button>
+            </Button>
           </div>
           <SignalSelect label={t("panels.signal")} value={settings.signal} onChange={(signal) => onChange({ signal })} />
           <label className={label}>
             {t("panels.window")}
-            <select aria-label={t("panels.window")} className={select} value={settings.window} onChange={(e) => onChange({ window: e.target.value as SpectrumWindow })}>
+            <Select aria-label={t("panels.window")} size="md" value={settings.window} onChange={(e) => onChange({ window: e.target.value as SpectrumWindow })}>
               {WINDOWS.map((w) => (
                 <option key={w} value={w}>
                   {t(`panels.windows.${w}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className={label}>
             {t("panels.length")}
-            <select aria-label={t("panels.length")} className={select} value={settings.length} onChange={(e) => onChange({ length: Number(e.target.value) })}>
+            <Select aria-label={t("panels.length")} size="md" value={settings.length} onChange={(e) => onChange({ length: Number(e.target.value) })}>
               {SPECTRUM_LENGTHS.map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className={label}>
             {t("panels.scale")}
-            <select aria-label={t("panels.scale")} className={select} value={settings.scale} onChange={(e) => onChange({ scale: e.target.value as SpectrumScale })}>
+            <Select aria-label={t("panels.scale")} size="md" value={settings.scale} onChange={(e) => onChange({ scale: e.target.value as SpectrumScale })}>
               <option value="amplitude">{t("panels.scales.amplitude")}</option>
               <option value="psd">{t("panels.scales.psd")}</option>
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={settings.db} onChange={(e) => onChange({ db: e.target.checked })} />

@@ -11,6 +11,7 @@ import { LiveSystemsPanel } from "./components/LiveSystemsPanel";
 import { RecordingsPanel } from "./components/RecordingsPanel";
 import { Workspace } from "./components/Workspace";
 import { useSession } from "./state/session";
+import { Button } from "./components/ui/controls";
 
 export function App() {
   const { t } = useTranslation();
@@ -27,27 +28,30 @@ export function App() {
           {project && !showChooser && (
             <nav className="ml-2 flex gap-1" role="tablist" aria-label={t("app.views")}>
               {(["telemetry", "model", "parameters"] as const).map((v) => (
-                <button
+                <Button
                   key={v}
                   role="tab"
                   aria-selected={view === v}
                   onClick={() => setView(v)}
-                  className={`whitespace-nowrap rounded px-2 py-1 text-sm ${view === v ? "bg-accent text-white" : "text-muted hover:text-fg"}`}
+                  variant="toggle"
+                  pressed={view === v}
+                  className="whitespace-nowrap text-sm"
                 >
                   {t(`app.view.${v}`)}
-                </button>
+                </Button>
               ))}
             </nav>
           )}
           {project && (
-            <button
+            <Button
               onClick={() => setChoosing((c) => !c)}
-              className="inline-flex items-center gap-1 rounded px-2 py-1 text-sm text-muted hover:text-fg"
+              variant="subtle"
+              className="text-sm"
               title={project.path}
             >
               <span data-testid="project-name">{project.name}</span>
               <ArrowLeftRight size={14} aria-label={t("project.switch")} />
-            </button>
+            </Button>
           )}
         </div>
         <div className="flex items-center gap-4">

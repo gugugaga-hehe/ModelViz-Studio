@@ -3,6 +3,7 @@ import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, refreshModels, useSession } from "../../state/session";
+import { Button, Textarea } from "../ui/controls";
 
 /** Text-first editor for a Project file (Block, System, Frame Format, dialect). */
 export function FileEditor({ path }: { path: string }) {
@@ -44,16 +45,17 @@ export function FileEditor({ path }: { path: string }) {
       <div className="flex items-center gap-2">
         <code className="truncate text-sm">{path}</code>
         {dirty && <span className="text-xs text-warn">{t("model.unsaved")}</span>}
-        <button
+        <Button
           onClick={() => void save()}
           disabled={!dirty}
-          className="ml-auto inline-flex items-center gap-1 rounded bg-accent px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
+          variant="primary"
+          className="ml-auto"
         >
           <Save size={12} />
           {t("model.save")}
-        </button>
+        </Button>
       </div>
-      <textarea
+      <Textarea
         aria-label={t("model.content")}
         spellCheck={false}
         value={content ?? ""}
@@ -64,7 +66,7 @@ export function FileEditor({ path }: { path: string }) {
             void save();
           }
         }}
-        className="min-h-48 flex-1 resize-none rounded border border-border bg-bg p-2 font-mono text-xs leading-5 outline-none focus:border-accent"
+        className="min-h-48 flex-1 resize-none font-mono leading-5"
       />
       {(issues.length > 0 || error) && (
         <ul role="alert" aria-label={t("model.issues")} className="flex flex-col gap-1 text-xs text-danger">

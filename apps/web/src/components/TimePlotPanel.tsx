@@ -8,6 +8,7 @@ import { retainSignals, signalStore } from "../state/session";
 import { SignalPicker, useSignalsById } from "./panels/SignalPicker";
 import { alignedWindow, wheelZoomPanPlugin } from "./plot-data";
 import { resolveColor, seriesColor, usePlotTheme } from "./plot-theme";
+import { Button } from "./ui/controls";
 
 /** Visible time span of the live plot (seconds). */
 const WINDOW_SECONDS = 10;
@@ -40,14 +41,15 @@ export function TimePlotPanel({ n, selected, onChange }: { n: number; selected: 
         <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-            <button
+            <Button
               onClick={() => setPaused((p) => !p)}
               disabled={!selectedSignals.length}
-              className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
+              size="xs"
+              className="ml-auto"
             >
               {paused ? <Play size={12} /> : <Pause size={12} />}
               {t(paused ? "plot.resume" : "plot.pause")}
-            </button>
+            </Button>
           </div>
           <SignalPicker selected={selected} onToggle={toggle} />
         </div>

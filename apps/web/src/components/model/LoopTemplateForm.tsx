@@ -1,6 +1,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, refreshModels, useSession } from "../../state/session";
+import { Button, Input, Select } from "../ui/controls";
 
 export function LoopTemplateForm({ onCreated }: { onCreated: (path: string) => void }) {
   const { t } = useTranslation();
@@ -32,7 +33,6 @@ export function LoopTemplateForm({ onCreated }: { onCreated: (path: string) => v
     }
   }
 
-  const input = "w-full rounded border border-border bg-surface px-2 py-1 text-xs";
   const options = blocks.map((b) => (
     <option key={b.path} value={b.path}>
       {b.path}
@@ -44,11 +44,11 @@ export function LoopTemplateForm({ onCreated }: { onCreated: (path: string) => v
       <div className="flex gap-1">
         <label className="flex flex-[2] flex-col gap-1">
           {t("loop.name")}
-          <input className={input} value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
+          <Input className="w-full" value={name} onChange={(e) => setName(e.target.value)} required pattern="[A-Za-z][A-Za-z0-9_-]*" />
         </label>
         <label className="flex flex-1 flex-col gap-1">
           {t("loop.rate")}
-          <input className={input} value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric" required />
+          <Input className="w-full" value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric" required />
         </label>
       </div>
       {(
@@ -60,15 +60,15 @@ export function LoopTemplateForm({ onCreated }: { onCreated: (path: string) => v
       ).map(([role, value, set, optional]) => (
         <label key={role} className="flex flex-col gap-1">
           {t(`loop.${role}`)}
-          <select aria-label={t(`loop.${role}`)} className={input} value={value} onChange={(e) => set(e.target.value)}>
+          <Select aria-label={t(`loop.${role}`)} className="w-full" value={value} onChange={(e) => set(e.target.value)}>
             {optional ? <option value="">{t("loop.none")}</option> : null}
             {options}
-          </select>
+          </Select>
         </label>
       ))}
-      <button type="submit" disabled={!blocks.length} className="rounded bg-accent px-2 py-1 font-medium text-white disabled:opacity-40">
+      <Button type="submit" disabled={!blocks.length} variant="primary">
         {t("loop.create")}
-      </button>
+      </Button>
       {error && (
         <p role="alert" className="text-danger">
           {error}

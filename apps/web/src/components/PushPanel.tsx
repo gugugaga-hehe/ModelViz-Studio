@@ -3,9 +3,8 @@ import { Plus, Save, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
+import { Button, Input, Select } from "./ui/controls";
 
-const input = "rounded border border-border bg-surface px-2 py-1 text-sm";
-const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50";
 
 const blockLabel = (m: ParameterMapping) => `${m.system.replace(/^systems\//, "").replace(/\.ya?ml$/, "")} › ${m.block}.${m.parameter}`;
 
@@ -83,10 +82,10 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
     <section className="flex flex-col gap-2 border-t border-border pt-3" data-testid="push-panel">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="font-semibold">{t("push.mappings")}</h3>
-        <button className={btn} onClick={() => void startPush()} disabled={!reachable || busy || dirty || !rows.some((r) => r.device === device)}>
+        <Button onClick={() => void startPush()} disabled={!reachable || busy || dirty || !rows.some((r) => r.device === device)}>
           <Upload size={12} />
           {t("push.push")}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-muted">{t("push.explain")}</p>
       {rows.length > 0 && (
@@ -110,55 +109,55 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
               return (
                 <tr key={i} className="border-t border-border" data-testid={`mapping-${i}`}>
                   <td className="py-1 pr-2">
-                    <select aria-label={t("push.system")} className={input} value={r.system} onChange={(e) => edit(i, { system: e.target.value })}>
+                    <Select aria-label={t("push.system")} size="md" value={r.system} onChange={(e) => edit(i, { system: e.target.value })}>
                       {!sys && <option value={r.system}>{r.system}</option>}
                       {systems.map((s) => (
                         <option key={s.path} value={s.path}>
                           {s.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="py-1 pr-2">
-                    <select aria-label={t("push.block")} className={input} value={r.block} onChange={(e) => edit(i, { block: e.target.value })}>
+                    <Select aria-label={t("push.block")} size="md" value={r.block} onChange={(e) => edit(i, { block: e.target.value })}>
                       {!blocks.includes(r.block) && <option value={r.block}>{r.block}</option>}
                       {blocks.map((b) => (
                         <option key={b}>{b}</option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="py-1 pr-2">
-                    <select aria-label={t("push.blockParameter")} className={input} value={r.parameter} onChange={(e) => edit(i, { parameter: e.target.value })}>
+                    <Select aria-label={t("push.blockParameter")} size="md" value={r.parameter} onChange={(e) => edit(i, { parameter: e.target.value })}>
                       {!params.includes(r.parameter) && <option value={r.parameter}>{r.parameter}</option>}
                       {params.map((p) => (
                         <option key={p}>{p}</option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="py-1 pr-2 font-mono" data-testid="mapping-value">
                     {r.blockValue ?? ""}
                     {r.issue && <span className="block text-xs text-danger">{r.issue}</span>}
                   </td>
                   <td className="py-1 pr-2">
-                    <select aria-label={t("params.device")} className={input} value={r.device} onChange={(e) => edit(i, { device: e.target.value })}>
+                    <Select aria-label={t("params.device")} size="md" value={r.device} onChange={(e) => edit(i, { device: e.target.value })}>
                       {!devices.some((d) => d.id === r.device) && <option value={r.device}>{r.device}</option>}
                       {devices.map((d) => (
                         <option key={d.id}>{d.id}</option>
                       ))}
-                    </select>
+                    </Select>
                   </td>
                   <td className="py-1 pr-2">
-                    <input
+                    <Input
                       aria-label={t("push.deviceParameter")}
-                      className={`${input} w-36 font-mono`}
+                      size="md"
+                      className="w-36 font-mono"
                       list="device-parameter-names"
                       value={r.deviceParameter}
                       onChange={(e) => edit(i, { deviceParameter: e.target.value })}
                     />
                   </td>
                   <td className="py-1">
-                    <button
-                      className={btn}
+                    <Button
                       aria-label={t("push.remove")}
                       onClick={() => {
                         setRows((rs) => rs.filter((_, k) => k !== i));
@@ -166,7 +165,7 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
                       }}
                     >
                       <Trash2 size={12} />
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               );
@@ -181,8 +180,7 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
       </datalist>
       <div className="flex gap-2">
         {firstSystem && (
-          <button
-            className={btn}
+          <Button
             onClick={() => {
               const block = Object.keys(firstSystem.parameters).find((b) => Object.keys(firstSystem.parameters[b]!).length) ?? "";
               const parameter = Object.keys(firstSystem.parameters[block] ?? {})[0] ?? "";
@@ -192,12 +190,12 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
           >
             <Plus size={12} />
             {t("push.add")}
-          </button>
+          </Button>
         )}
-        <button className={btn} onClick={() => void save()} disabled={!dirty}>
+        <Button onClick={() => void save()} disabled={!dirty}>
           <Save size={12} />
           {t("push.save")}
-        </button>
+        </Button>
         {dirty && <span className="text-xs text-warn">{t("push.unsaved")}</span>}
       </div>
       {error && (
@@ -250,18 +248,18 @@ export function PushPanel({ device, reachable, deviceParameters }: { device: str
             </table>
             <div className="flex justify-end gap-2">
               {result ? (
-                <button className={btn} onClick={close}>
+                <Button onClick={close}>
                   {t("push.close")}
-                </button>
+                </Button>
               ) : (
                 <>
-                  <button className={btn} onClick={close} disabled={busy}>
+                  <Button onClick={close} disabled={busy}>
                     {t("push.cancel")}
-                  </button>
-                  <button className={`${btn} border-accent`} onClick={() => void confirm()} disabled={busy || changes === 0}>
+                  </Button>
+                  <Button variant="primary" onClick={() => void confirm()} disabled={busy || changes === 0}>
                     <Upload size={12} />
                     {t("push.confirm", { count: changes })}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

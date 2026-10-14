@@ -7,6 +7,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { signalStore } from "../../state/session";
 import { useRetained } from "../TimePlotPanel";
 import { SignalSelect, useSignalsById } from "./SignalPicker";
+import { Select } from "../ui/controls";
 
 export type AttitudeMode = "quaternion" | "euler";
 
@@ -69,7 +70,6 @@ export function AttitudePanel({
       ? Boolean(settings.qw || settings.qx || settings.qy || settings.qz)
       : Boolean(settings.roll || settings.pitch || settings.yaw);
 
-  const selectCls = "rounded border border-border bg-surface px-2 py-1 text-sm text-fg";
   const labelCls = "flex flex-col gap-1 text-xs text-muted";
 
   return (
@@ -82,15 +82,15 @@ export function AttitudePanel({
 
           <label className={labelCls}>
             {t("panels.attitude.mode")}
-            <select
+            <Select
               aria-label={t("panels.attitude.mode")}
-              className={selectCls}
+              size="md"
               value={settings.mode}
               onChange={(e) => onChange({ mode: e.target.value as AttitudeMode })}
             >
               <option value="quaternion">{t("panels.attitude.quaternion")}</option>
               <option value="euler">{t("panels.attitude.euler")}</option>
-            </select>
+            </Select>
           </label>
 
           {settings.mode === "quaternion" ? (
@@ -107,15 +107,15 @@ export function AttitudePanel({
               <SignalSelect label={t("panels.attitude.yaw")} value={settings.yaw} onChange={(yaw) => onChange({ yaw })} />
               <label className={labelCls}>
                 {t("panels.attitude.unit")}
-                <select
+                <Select
                   aria-label={t("panels.attitude.unit")}
-                  className={selectCls}
+                  size="md"
                   value={settings.unit}
                   onChange={(e) => onChange({ unit: e.target.value as "rad" | "deg" })}
                 >
                   <option value="rad">{t("panels.attitude.radians")}</option>
                   <option value="deg">{t("panels.attitude.degrees")}</option>
-                </select>
+                </Select>
               </label>
             </>
           )}

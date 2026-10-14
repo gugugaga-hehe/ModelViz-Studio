@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useSession } from "../state/session";
 import { PushPanel } from "./PushPanel";
+import { Button, Input, Select } from "./ui/controls";
 
 /** Outcome of the last read or write of one Device Parameter. */
 type RowStatus = { kind: "busy" } | { kind: "ack"; action: "read" | "write" } | { kind: "refused"; requested: number } | { kind: "error"; message: string };
@@ -88,27 +89,25 @@ export function ParametersView() {
     }
   }
 
-  const input = "rounded border border-border bg-surface px-2 py-1 text-sm";
-  const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent disabled:opacity-50";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto rounded-lg border border-border bg-surface p-4" data-testid="parameters-view">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="font-semibold">{t("params.heading")}</h2>
         {devices.length > 1 && (
-          <select aria-label={t("params.device")} className={input} value={device} onChange={(e) => setPicked(e.target.value)}>
+          <Select aria-label={t("params.device")} size="md" value={device} onChange={(e) => setPicked(e.target.value)}>
             {devices.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.id}
               </option>
             ))}
-          </select>
+          </Select>
         )}
         {device && (
-          <button className={btn} onClick={() => void enumerate()} disabled={!reachable || listing}>
+          <Button onClick={() => void enumerate()} disabled={!reachable || listing}>
             <RefreshCw size={12} className={listing ? "animate-spin" : ""} />
             {t("params.enumerate")}
-          </button>
+          </Button>
         )}
       </div>
       <p className="text-xs text-muted">{t("params.explainPush")}</p>
@@ -152,23 +151,24 @@ export function ParametersView() {
                   </td>
                   <td className="py-1 pr-3">
                     <div className="flex items-center gap-1">
-                      <input
+                      <Input
                         aria-label={t("params.newValueFor", { name: p.name })}
-                        className={`${input} w-28`}
+                        size="md"
+                        className="w-28"
                         inputMode="decimal"
                         value={drafts[p.name] ?? ""}
                         onChange={(e) => setDrafts((d) => ({ ...d, [p.name]: e.target.value }))}
                         onKeyDown={(e) => e.key === "Enter" && void write(p.name)}
                         disabled={!reachable}
                       />
-                      <button className={btn} onClick={() => void write(p.name)} disabled={!reachable || st?.kind === "busy" || !drafts[p.name]}>
+                      <Button onClick={() => void write(p.name)} disabled={!reachable || st?.kind === "busy" || !drafts[p.name]}>
                         <Upload size={12} />
                         {t("params.write")}
-                      </button>
-                      <button className={btn} onClick={() => void read(p.name)} disabled={!reachable || st?.kind === "busy"}>
+                      </Button>
+                      <Button onClick={() => void read(p.name)} disabled={!reachable || st?.kind === "busy"}>
                         <Download size={12} />
                         {t("params.read")}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                   <td className="py-1 text-xs" data-testid="param-status" data-status={st?.kind ?? ""}>

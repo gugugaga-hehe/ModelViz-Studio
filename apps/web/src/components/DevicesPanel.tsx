@@ -6,6 +6,7 @@ import { client, useSession } from "../state/session";
 import { ConnectForm } from "./ConnectForm";
 import { formatDuration } from "./format";
 import { LinkHealthView } from "./LinkHealthView";
+import { Button } from "./ui/controls";
 
 const STATE_COLOR: Record<SourceState["state"], string> = {
   connecting: "text-warn",
@@ -44,7 +45,6 @@ export function DevicesPanel() {
         {devices.map((d) => {
           const source = sources[d.id];
           const active = source && source.state !== "stopped" && source.state !== "rejected";
-          const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:border-accent";
           const recording = recordings.find((r) => r.device === d.id && r.active);
           const canRecord = source?.state === "running" && source.kind !== "replay";
           return (
@@ -78,35 +78,35 @@ export function DevicesPanel() {
                 <div className="mt-2 flex flex-wrap gap-1">
                   {active ? (
                     <>
-                      <button className={btn} onClick={() => run(() => client.request("source.stop", { device: d.id }))}>
+                      <Button onClick={() => run(() => client.request("source.stop", { device: d.id }))}>
                         <Square size={12} />
                         {t("devices.stop")}
-                      </button>
+                      </Button>
                       {recording ? (
-                        <button className={`${btn} text-danger`} onClick={() => run(() => client.request("recording.stop", { device: d.id }))}>
+                        <Button variant="danger" onClick={() => run(() => client.request("recording.stop", { device: d.id }))}>
                           <Square size={12} />
                           {t("recordings.stop")} {formatDuration(recording.durationMs)}
-                        </button>
+                        </Button>
                       ) : (
                         canRecord && (
-                          <button className={btn} onClick={() => run(() => client.request("recording.start", { device: d.id }))}>
+                          <Button onClick={() => run(() => client.request("recording.start", { device: d.id }))}>
                             <Circle size={12} className="fill-danger text-danger" />
                             {t("recordings.record")}
-                          </button>
+                          </Button>
                         )
                       )}
                     </>
                   ) : (
                     <>
-                      <button className={btn} onClick={() => setConnecting(connecting === d.id ? null : d.id)}>
+                      <Button onClick={() => setConnecting(connecting === d.id ? null : d.id)}>
                         <Cable size={12} />
                         {t("devices.connect")}
-                      </button>
+                      </Button>
                       {d.virtual && (
-                        <button className={btn} onClick={() => run(() => client.request("source.startVirtual", { device: d.id }))}>
+                        <Button onClick={() => run(() => client.request("source.startVirtual", { device: d.id }))}>
                           <Play size={12} />
                           {t("devices.startVirtual")}
-                        </button>
+                        </Button>
                       )}
                     </>
                   )}
