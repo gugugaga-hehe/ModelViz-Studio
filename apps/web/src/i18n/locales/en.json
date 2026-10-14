@@ -260,7 +260,9 @@
     "version": "Python version (optional)",
     "apply": "Apply",
     "setUp": "Set up Python environment…",
-    "edit": "Edit dependencies…"
+    "edit": "Edit dependencies…",
+    "output": "Block output",
+    "clearOutput": "Clear"
   },
   "live": {
     "heading": "Live Systems",

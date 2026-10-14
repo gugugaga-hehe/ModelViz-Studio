@@ -1,12 +1,13 @@
 import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { client, useSession } from "../../state/session";
+import { client, usePythonOutput, useSession } from "../../state/session";
 
 /** Status and declaration of the Project's Python environment (ADR-0005). */
 export function PythonPanel() {
   const { t } = useTranslation();
   const status = useSession((s) => s.python);
+  const output = usePythonOutput();
   const [editing, setEditing] = useState(false);
   const [deps, setDeps] = useState("");
   const [version, setVersion] = useState("");
@@ -58,6 +59,15 @@ export function PythonPanel() {
         <p className="text-muted" data-testid="python-locked">
           {t("python.packages", { count: status?.locked.length ?? 0 })}
         </p>
+      )}
+      {output.text && (
+        <details className="flex flex-col gap-1" data-testid="python-output">
+          <summary className="cursor-pointer text-muted hover:text-fg">{t("python.output")}</summary>
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded border border-border bg-bg p-1 font-mono">{output.text}</pre>
+          <button onClick={output.clear} className="self-start text-muted hover:text-fg">
+            {t("python.clearOutput")}
+          </button>
+        </details>
       )}
       {editing ? (
         <div className="flex flex-col gap-1">

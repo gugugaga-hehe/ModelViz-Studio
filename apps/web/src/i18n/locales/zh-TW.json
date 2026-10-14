@@ -260,7 +260,9 @@
     "version": "Python 版本（選填）",
     "apply": "套用",
     "setUp": "設定 Python 環境…",
-    "edit": "編輯依賴套件…"
+    "edit": "編輯依賴套件…",
+    "output": "Block 輸出",
+    "clearOutput": "清除"
   },
   "live": {
     "heading": "Live System",

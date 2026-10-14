@@ -1,8 +1,8 @@
 import type { SweepAxis, SweepRequest, SweepResult } from "@modelviz/protocol";
 import { ProtocolFailure } from "../errors.ts";
 import { NotLinearError, bode, evalPoint, frequencyMetrics, linearFinalValues, logspace, loopMetrics, responseAt, stepMetrics, systemModel } from "./lti.ts";
-import type { PythonHost } from "./python-host.ts";
-import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
+import type { PythonHost, PythonRuntime } from "./python-host.ts";
+import { type LoadedSystem, SystemEngine, loadSystem } from "./system.ts";
 import { withPython } from "./time-analysis.ts";
 
 /** Grid points along one axis. */
@@ -17,6 +17,8 @@ export function axisValues(a: SweepAxis): number[] {
 export interface SweepControl {
   cancelled: boolean;
   progress(done: number, total: number): void;
+  /** Aborted on cancellation, to stop work that cannot poll `cancelled` (e.g. a Python host). */
+  signal?: AbortSignal;
 }
 
 const nextTick = () => new Promise<void>((r) => setImmediate(r));
@@ -26,10 +28,10 @@ const finite = (v: number | null | undefined): number | null => (v === null || v
  * Evaluates the requested Metrics over a 1-D or 2-D grid of Block Parameter values. Yields to
  * the event loop between points so progress, cancellation and other requests keep flowing.
  */
-export async function runSweep(projectPath: string, req: SweepRequest, ctl: SweepControl, python: string | null = null): Promise<SweepResult> {
+export async function runSweep(projectPath: string, req: SweepRequest, ctl: SweepControl, python: PythonRuntime | null = null): Promise<SweepResult> {
   const sys = await loadSystem(projectPath, req.system);
   if (sys.issues.length || !sys.file) throw new ProtocolFailure("invalid_system", sys.issues.map((i) => i.message).join("; "));
-  const host = withPython(sys, python);
+  const host = withPython(sys, python, ctl.signal);
   try {
     return await sweep(sys, req, ctl, host);
   } finally {
@@ -78,7 +80,7 @@ async function sweep(sys: LoadedSystem, req: SweepRequest, ctl: SweepControl, ho
         const met = diverged ? null : stepMetrics(times, y, final ?? undefined);
         for (const n of m.step) record(n, met ? finite(met[n]) : null);
       } catch (e) {
-        if (!(e instanceof SystemError) && !(e instanceof Error)) throw e;
+        if (e instanceof ProtocolFailure) throw e;
         for (const n of m.step) record(n, null);
       }
     }

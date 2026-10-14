@@ -38,6 +38,14 @@ export function AnalysisPanel({ system }: { system: string | null }) {
   const [mAmp, setMAmp] = useState("1");
   const [jobId, setJobId] = useState<string | null>(null);
   const progress = useProgress((s) => (jobId ? s[jobId] : undefined));
+  /** Offer cancelling only once an Analysis takes noticeably long, so quick runs do not flash a button. */
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!jobId) return;
+    const timer = setTimeout(() => setSlow(true), 300);
+    return () => clearTimeout(timer);
+  }, [jobId]);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,9 +81,12 @@ export function AnalysisPanel({ system }: { system: string | null }) {
           stim === "sine"
             ? { kind: "sine", freqHz: Number(f0), amplitude: Number(amp) }
             : { kind: stim, f0Hz: Number(f0), f1Hz: Number(f1), amplitude: Number(amp) };
+        const id = crypto.randomUUID();
+        setJobId(id);
         setResult({
           kind: "time",
           data: await client.request("analysis.time", {
+            id,
             system: current,
             kind,
             durationS: Number(duration),
@@ -218,9 +229,9 @@ export function AnalysisPanel({ system }: { system: string | null }) {
           <Play size={12} />
           {t("analysis.run")}
         </button>
-        {jobId && progress && (
+        {jobId && (slow || progress) && (
           <>
-            <progress className="h-2 w-32" max={progress.total} value={progress.done} aria-label={t("sweep.progress")} />
+            {progress && <progress className="h-2 w-32" max={progress.total} value={progress.done} aria-label={t("sweep.progress")} />}
             <button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} className="rounded border border-border px-2 py-1">
               {t("sweep.cancel")}
             </button>

@@ -3,6 +3,7 @@ import { ProtocolFailure } from "../errors.ts";
 import { NotLinearError, type SystemModel, bode, evalPoint, frequencyMetrics, isStable, logspace, loopMetrics, poles, responseAt, systemModel, zerosOf } from "./lti.ts";
 import { type MeasureControl, breakLoop, gridLoopMetrics, gridMetrics, measureResponses, toBode } from "./measured.ts";
 import { type LoadedSystem, loadSystem } from "./system.ts";
+import type { PythonRuntime } from "./python-host.ts";
 import { withPython } from "./time-analysis.ts";
 
 async function linearSystem(projectPath: string, path: string, overrides: Record<string, Record<string, number>>, breakAt?: string) {
@@ -28,7 +29,7 @@ function inputIndex(model: SystemModel, name: string | undefined, system: string
 export async function runFrequencyAnalysis(
   projectPath: string,
   req: FrequencyAnalysisRequest,
-  python: string | null = null,
+  python: PythonRuntime | null = null,
   ctl: MeasureControl = { cancelled: false, progress: () => {} },
 ): Promise<FrequencyAnalysisResult> {
   if (req.method === "measured") return runMeasured(projectPath, req, python, ctl);
@@ -93,7 +94,7 @@ export async function runPoleZero(
 const MEASURED_POINTS = 40;
 
 /** Measured Frequency Response (stepped sines) for any System, including nonlinear ones. */
-async function runMeasured(projectPath: string, req: FrequencyAnalysisRequest, python: string | null, ctl: MeasureControl): Promise<FrequencyAnalysisResult> {
+async function runMeasured(projectPath: string, req: FrequencyAnalysisRequest, python: PythonRuntime | null, ctl: MeasureControl): Promise<FrequencyAnalysisResult> {
   const sys = await loadSystem(projectPath, req.system);
   if (sys.issues.length || !sys.file) throw new ProtocolFailure("invalid_system", sys.issues.map((i) => i.message).join("; "));
   const input = req.input ?? sys.file.inputs[0];
@@ -103,7 +104,7 @@ async function runMeasured(projectPath: string, req: FrequencyAnalysisRequest, p
   const fMin = req.fMinHz ?? Math.max(1, fMax / 500);
   if (!(fMin < fMax)) throw new ProtocolFailure("invalid_params", `Frequency range is empty (${fMin}–${fMax} Hz)`);
   const freqs = logspace(fMin, fMax, Math.min(req.points, MEASURED_POINTS));
-  const host = withPython(sys, python);
+  const host = withPython(sys, python, ctl.signal);
   try {
     const parts = req.openLoopAt ? 2 : 1;
     const progress = (offset: number) => (done: number, total: number) => ctl.progress(offset + done, total * parts);

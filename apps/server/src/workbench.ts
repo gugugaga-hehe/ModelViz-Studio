@@ -23,6 +23,7 @@ import { compareDiscretization, discretizeBlock } from "./model/discretization-s
 import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts";
 import { spectrum } from "./model/spectrum.ts";
 import { type SweepControl, runSweep } from "./model/sweep.ts";
+import type { PythonRuntime } from "./model/python-host.ts";
 import { type SampledSignal, runTimeAnalysis, withPython } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject, readLayout, updateManifest, writeLayout } from "./project-store.ts";
@@ -71,7 +72,7 @@ export class Workbench {
   /** Systems running from live Signals, by System path. */
   private readonly live = new Map<string, LiveSystem>();
   /** Long-running Analyses by client-chosen id, for cancellation. */
-  private readonly jobs = new Map<string, SweepControl>();
+  private readonly jobs = new Map<string, AbortController>();
   /** Push previews waiting for confirmation. */
   private readonly push = new PushService();
   private readonly healthTimer = setInterval(() => this.reportHealth(), 1000);
@@ -319,19 +320,19 @@ export class Workbench {
     "analysis.frequency": async (p) => {
       const req = Methods["analysis.frequency"].params.parse(p);
       const project = this.requireProject();
-      if (!req.id) return runFrequencyAnalysis(project.path, req, this.python?.python ?? null);
-      return this.job(req.id, (ctl) => runFrequencyAnalysis(project.path, req, this.python?.python ?? null, ctl));
+      if (!req.id) return runFrequencyAnalysis(project.path, req, this.pythonRuntime());
+      return this.job(req.id, (ctl) => runFrequencyAnalysis(project.path, req, this.pythonRuntime(), ctl));
     },
     "analysis.poleZero": async (p) => runPoleZero(this.requireProject().path, Methods["analysis.poleZero"].params.parse(p)),
     "analysis.sweep": async (p) => {
       const req = Methods["analysis.sweep"].params.parse(p);
       const project = this.requireProject();
-      return this.job(req.id, (ctl) => runSweep(project.path, req, ctl, this.python?.python ?? null));
+      return this.job(req.id, (ctl) => runSweep(project.path, req, ctl, this.pythonRuntime()));
     },
     "analysis.cancel": async (p) => {
       const { id } = Methods["analysis.cancel"].params.parse(p);
       const job = this.jobs.get(id);
-      if (job) job.cancelled = true;
+      job?.abort();
       return { cancelled: !!job };
     },
     "analysis.spectrum": async (p) => spectrum(Methods["analysis.spectrum"].params.parse(p)),
@@ -339,7 +340,9 @@ export class Workbench {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();
       const signal = req.kind === "signal" && req.signal ? await this.recordedSignal(req.signal.recording, req.signal.signal) : null;
-      const result = await runTimeAnalysis(project.path, req, this.python?.python ?? null, signal);
+      const result = req.id
+        ? await this.job(req.id, (ctl) => runTimeAnalysis(project.path, req, this.pythonRuntime(), signal, ctl.signal))
+        : await runTimeAnalysis(project.path, req, this.pythonRuntime(), signal);
       this.publishSystemOutputs(result.system, result.times, result.series);
       return result;
     },
@@ -366,7 +369,7 @@ export class Workbench {
       const info = this.bus.list().find((s) => s.id === signal);
       if (!info) throw new ProtocolFailure("not_found", `Unknown Signal ${signal}`);
       const sys = await loadSystem(project.path, system);
-      const host = withPython(sys, this.python?.python ?? null);
+      const host = withPython(sys, this.pythonRuntime());
       let engine: SystemEngine;
       try {
         engine = new SystemEngine(sys, parameters, host ? { python: host } : {});
@@ -447,8 +450,12 @@ export class Workbench {
   private async job<T>(id: string, work: (ctl: SweepControl) => Promise<T>): Promise<T> {
     if (this.jobs.has(id)) throw new ProtocolFailure("conflict", `An Analysis with id ${id} is already running`);
     let last = 0;
+    const abort = new AbortController();
     const ctl: SweepControl = {
-      cancelled: false,
+      get cancelled() {
+        return abort.signal.aborted;
+      },
+      signal: abort.signal,
       progress: (done, total) => {
         const now = performance.now();
         if (done === total || now - last > 100) {
@@ -457,12 +464,19 @@ export class Workbench {
         }
       },
     };
-    this.jobs.set(id, ctl);
+    this.jobs.set(id, abort);
     try {
       return await work(ctl);
     } finally {
       this.jobs.delete(id);
     }
+  }
+
+  /** How Python Blocks run in this Project; null until its Python environment is ready. */
+  private pythonRuntime(): PythonRuntime | null {
+    const python = this.python?.python;
+    if (!python) return null;
+    return { python, callTimeoutMs: this.python!.callTimeoutMs, onOutput: (text) => this.broadcast("python.output", { text }) };
   }
 
   /** Whether any Source is running (reloading the Project would interrupt it). */

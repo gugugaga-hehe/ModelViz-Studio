@@ -80,7 +80,11 @@ def handle(msg):
 
 
 def main():
-    out = sys.stdout
+    # Replies go to a private copy of stdout. Everything else written to stdout, by print() or by
+    # extension modules writing to fd 1, goes to stderr, which the server shows as Block output.
+    out = os.fdopen(os.dup(1), "w", encoding="utf-8")
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
     for line in sys.stdin:
         msg = json.loads(line)
         try:

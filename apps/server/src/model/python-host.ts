@@ -1,5 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { ProtocolFailure } from "../errors.ts";
 import { BlockError } from "./block.ts";
 
 const RUNNER = fileURLToPath(new URL("../../python/runner.py", import.meta.url));
@@ -9,8 +10,19 @@ interface Pending {
   reject(e: Error): void;
 }
 
+/** How Python Blocks run: the Project's interpreter and the limits around it. */
+export interface PythonRuntime {
+  /** Path of the Project environment's interpreter. */
+  python: string;
+  /** A call that takes longer stops the whole host (e.g. a Block stuck in a loop). */
+  callTimeoutMs: number;
+  /** Text Blocks write to stdout/stderr (print, warnings, tracebacks), as it arrives. */
+  onOutput?: (text: string) => void;
+}
+
 /**
- * One Python process hosting the Python Blocks of an Analysis, spoken to with JSON lines.
+ * One Python process hosting the Python Blocks of an Analysis, spoken to with JSON lines on a
+ * private copy of stdout; the Blocks' own stdout goes to stderr (see runner.py).
  * Created per run (or per Parameter Sweep) and closed afterwards.
  */
 export class PythonHost {
@@ -22,8 +34,8 @@ export class PythonHost {
   private stderr = "";
   private exited: Error | null = null;
 
-  constructor(python: string) {
-    this.child = spawn(python, ["-u", RUNNER], { stdio: ["pipe", "pipe", "pipe"] });
+  constructor(private readonly runtime: PythonRuntime) {
+    this.child = spawn(runtime.python, ["-u", RUNNER], { stdio: ["pipe", "pipe", "pipe"] });
     this.child.stdout.on("data", (d: Buffer) => {
       this.buffer += d.toString();
       let nl;
@@ -43,21 +55,35 @@ export class PythonHost {
         else p.reject(new BlockError(`${msg.where}: ${msg.error}`));
       }
     });
-    this.child.stderr.on("data", (d: Buffer) => (this.stderr = (this.stderr + d.toString()).slice(-2000)));
-    const fail = (e: Error) => {
-      this.exited = e;
-      for (const p of this.pending.values()) p.reject(e);
-      this.pending.clear();
-    };
-    this.child.on("error", (e) => fail(new BlockError(`Python could not start: ${e.message}`)));
-    this.child.on("exit", (code) => fail(new BlockError(`Python exited (${code})${this.stderr ? `: ${this.stderr.trim()}` : ""}`)));
+    this.child.stderr.on("data", (d: Buffer) => {
+      const text = d.toString();
+      this.stderr = (this.stderr + text).slice(-2000);
+      runtime.onOutput?.(text);
+    });
+    this.child.on("error", (e) => this.fail(new BlockError(`Python could not start: ${e.message}`)));
+    this.child.on("exit", (code) => this.fail(new BlockError(`Python exited (${code})${this.stderr ? `: ${this.stderr.trim()}` : ""}`)));
+  }
+
+  /** Rejects every pending and future call with `reason` (the first reason wins). */
+  private fail(reason: Error): void {
+    if (this.exited) return;
+    this.exited = reason;
+    for (const p of this.pending.values()) p.reject(reason);
+    this.pending.clear();
   }
 
   call(msg: Record<string, unknown>): Promise<Record<string, unknown>> {
     if (this.exited) return Promise.reject(this.exited);
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.kill(new BlockError(`did not answer within ${this.runtime.callTimeoutMs / 1000} s; the Python host was stopped`));
+      }, this.runtime.callTimeoutMs);
+      const done = () => clearTimeout(timer);
+      this.pending.set(id, {
+        resolve: (v) => (done(), resolve(v)),
+        reject: (e) => (done(), reject(e)),
+      });
       this.child.stdin.write(`${JSON.stringify({ ...msg, id })}\n`);
     });
   }
@@ -66,7 +92,14 @@ export class PythonHost {
     return `b${this.nextHandle++}`;
   }
 
+  /** Stops the process at once, failing pending calls with `reason` (e.g. cancellation). */
+  kill(reason: Error): void {
+    this.fail(reason);
+    this.child.kill("SIGKILL");
+  }
+
   close(): void {
+    this.fail(new BlockError("Python host closed"));
     this.child.stdin.end();
     this.child.kill();
   }
@@ -105,6 +138,7 @@ export class PythonBlockRuntime {
       const out = reply.outputs as Record<string, number[]>;
       return this.outputs.map((n) => Float64Array.from(out[n]!));
     } catch (e) {
+      if (e instanceof ProtocolFailure) throw e;
       throw new BlockError(`${this.path} ${(e as Error).message}`);
     }
   }

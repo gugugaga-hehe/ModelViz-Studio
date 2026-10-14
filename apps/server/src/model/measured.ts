@@ -14,6 +14,8 @@ const CHUNK = 20000;
 export interface MeasureControl {
   cancelled: boolean;
   progress(done: number, total: number): void;
+  /** Aborted on cancellation, to stop work that cannot poll `cancelled` (e.g. a Python host). */
+  signal?: AbortSignal;
 }
 
 /** A copy of the System with the Connection into `port` cut: `__loop_in` drives it, `__loop_out` is the old driver. */
