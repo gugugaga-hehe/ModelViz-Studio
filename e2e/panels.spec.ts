@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -91,6 +91,49 @@ test("XY and table Panels in a dockable layout that is saved in the Project", as
     await expect(page.getByTestId("project-name")).toHaveText("Panel bench");
     await expect(xy.getByLabel("Y Signal")).toHaveValue("bench/BENCH_STATE.gyro_y");
     await expect.poll(() => groups(page)).toEqual([["Time plot 1"], ["Table 1"], ["XY plot 1"]]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("an unreadable layout file is kept until the user resets it", async ({ page }) => {
+  const dir = await mkdtemp(join(tmpdir(), "modelviz-e2e-"));
+  try {
+    await page.goto("/");
+    await page.getByRole("combobox", { name: "Language" }).selectOption("en");
+    const bench = join(dir, "bench");
+    await createProject(page, bench, "Broken layout", "virtual-bench");
+    const file = join(bench, "layout.yaml");
+    const corrupt = "version: 1\ndock: [unclosed\n";
+    await writeFile(file, corrupt);
+
+    // open the Project again: the notice says why, and a default time plot is shown
+    await page.getByRole("button", { name: "Switch Project" }).click();
+    await page.getByLabel("Folder (absolute path)").fill(bench);
+    await page.getByRole("button", { name: "Open Project" }).click();
+    const problem = page.getByTestId("layout-problem");
+    await expect(problem).toContainText("could not be restored");
+    await expect(problem).toContainText("not valid YAML");
+    await expect.poll(() => groups(page)).toEqual([["Time plot 1"]]);
+
+    // changing Panels, leaving the view and reloading never write over the file
+    await page.getByTestId("workspace").getByRole("button", { name: "Add table" }).click();
+    await page.getByRole("tab", { name: "Model Lab" }).click();
+    await page.getByRole("tab", { name: "Telemetry" }).click();
+    await page.reload();
+    await expect(page.getByTestId("layout-problem")).toBeVisible();
+    expect(await readFile(file, "utf8")).toBe(corrupt);
+
+    // resetting keeps a backup and saves the Panels shown now
+    await page.getByTestId("workspace").getByRole("button", { name: "Add table" }).click();
+    await page.getByRole("button", { name: "Reset Layout" }).click();
+    await expect(page.getByTestId("layout-backup")).toContainText("layout.yaml.bak");
+    await expect(page.getByTestId("layout-problem")).toHaveCount(0);
+    expect(await readFile(join(bench, "layout.yaml.bak"), "utf8")).toBe(corrupt);
+    await expect.poll(() => readFile(file, "utf8")).toContain("table-1");
+    await page.reload();
+    await expect.poll(() => groups(page)).toEqual([["Time plot 1"], ["Table 1"]]);
+    await expect(page.getByTestId("layout-problem")).toHaveCount(0);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
