@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!--
+  Starter dialect (ModelViz Studio standard, see mavlink-device-protocol/SKILL.md).
+  - Keep HEARTBEAT and PARAM_* exactly as in common.xml (standard CRC_EXTRA 50/214/159/220/168).
+  - Rename BENCH_* to your product prefix; custom ids in a private range (here 42000-42999).
+  - After any edit: run scripts/dialect_hash.py on this file (with the table option) and regenerate firmware.
+-->
+<mavlink>
+  <version>3</version>
+  <messages>
+    <message id="0" name="HEARTBEAT">
+      <description>Presence and identity of a Device.</description>
+      <field type="uint8_t" name="type">Vehicle or component type.</field>
+      <field type="uint8_t" name="autopilot">Autopilot type.</field>
+      <field type="uint8_t" name="base_mode">System mode bitmap.</field>
+      <field type="uint32_t" name="custom_mode">Firmware-specific mode.</field>
+      <field type="uint8_t" name="system_status">System status flag.</field>
+      <field type="uint8_t_mavlink_version" name="mavlink_version">MAVLink version.</field>
+    </message>
+    <!-- Device Parameter protocol, as defined in MAVLink common.xml. -->
+    <message id="20" name="PARAM_REQUEST_READ">
+      <description>Request to read the onboard parameter with param_id or param_index.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="int16_t" name="param_index">Parameter index, or -1 to use param_id.</field>
+    </message>
+    <message id="21" name="PARAM_REQUEST_LIST">
+      <description>Request all parameters of this component.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+    </message>
+    <message id="22" name="PARAM_VALUE">
+      <description>The current value of an onboard parameter.</description>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="float" name="param_value">Onboard parameter value.</field>
+      <field type="uint8_t" name="param_type">MAV_PARAM_TYPE of the parameter.</field>
+      <field type="uint16_t" name="param_count">Total number of onboard parameters.</field>
+      <field type="uint16_t" name="param_index">Index of this onboard parameter.</field>
+    </message>
+    <message id="23" name="PARAM_SET">
+      <description>Set a parameter value; the Device answers with PARAM_VALUE.</description>
+      <field type="uint8_t" name="target_system">System ID.</field>
+      <field type="uint8_t" name="target_component">Component ID.</field>
+      <field type="char[16]" name="param_id">Onboard parameter id.</field>
+      <field type="float" name="param_value">Onboard parameter value.</field>
+      <field type="uint8_t" name="param_type">MAV_PARAM_TYPE of the parameter.</field>
+    </message>
+    <message id="42002" name="DIALECT_INFO">
+      <description>Fingerprint of the dialect the firmware was built with.</description>
+      <field type="uint32_t" name="hash">Dialect hash.</field>
+    </message>
+    <message id="42000" name="BENCH_STATE">
+      <description>Control loop state of the bench Device.</description>
+      <field type="uint64_t" name="time_us" units="us">Device time since boot.</field>
+      <field type="float" name="setpoint" units="rad/s">Rate setpoint.</field>
+      <field type="float" name="gyro_x" units="rad/s">Gyro X.</field>
+      <field type="float" name="gyro_y" units="rad/s">Gyro Y.</field>
+      <field type="float" name="gyro_z" units="rad/s">Gyro Z.</field>
+      <field type="uint8_t" name="mode">Controller mode.</field>
+    </message>
+    <message id="42001" name="BENCH_IMU_BATCH">
+      <description>High-rate gyro samples, batched 8 per frame.</description>
+      <field type="uint64_t" name="time_us" units="us">Device time of the first sample.</field>
+      <field type="float[8]" name="gyro_x" units="rad/s">Gyro X samples.</field>
+      <field type="float[8]" name="gyro_y" units="rad/s">Gyro Y samples.</field>
+      <field type="float[8]" name="gyro_z" units="rad/s">Gyro Z samples.</field>
+    </message>
+  </messages>
+</mavlink>
