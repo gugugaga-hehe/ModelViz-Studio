@@ -21,6 +21,7 @@ import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate,
 import { SystemEngine, SystemError, loadSystem, systemName } from "./model/system.ts";
 import { compareDiscretization, discretizeBlock } from "./model/discretization-service.ts";
 import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts";
+import { spectrum } from "./model/spectrum.ts";
 import { type SweepControl, runSweep } from "./model/sweep.ts";
 import { type SampledSignal, runTimeAnalysis, withPython } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
@@ -333,6 +334,7 @@ export class Workbench {
       if (job) job.cancelled = true;
       return { cancelled: !!job };
     },
+    "analysis.spectrum": async (p) => spectrum(Methods["analysis.spectrum"].params.parse(p)),
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);
       const project = this.requireProject();

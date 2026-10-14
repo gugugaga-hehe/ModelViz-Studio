@@ -10,6 +10,8 @@ import {
   LiveSystemState,
   PoleZeroResult,
   PythonStatus,
+  SpectrumRequest,
+  SpectrumResult,
   SweepRequest,
   SweepResult,
   Stimulus,
@@ -245,6 +247,11 @@ export const Methods = {
     result: SystemInfo,
   },
   /** Time-domain Analysis; System outputs are also published as Signals `system:<name>/out.<output>`. */
+  /** FFT/PSD of a window of samples of any Signal. */
+  "analysis.spectrum": {
+    params: SpectrumRequest,
+    result: SpectrumResult,
+  },
   "analysis.time": {
     params: TimeAnalysisRequest,
     result: TimeAnalysisResult,

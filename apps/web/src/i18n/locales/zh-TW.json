@@ -343,6 +343,34 @@
     "signal": "Signal",
     "latest": "最新值",
     "units": "單位",
-    "empty": "沒有 Panel。用上方按鈕新增；拖曳分頁即可停靠與分割 Panel。"
+    "empty": "沒有 Panel。用上方按鈕新增；拖曳分頁即可停靠與分割 Panel。",
+    "addFft": "新增 FFT/PSD",
+    "fftTitle": "FFT/PSD {{n}}",
+    "hold": "凍結",
+    "window": "窗函數",
+    "length": "長度（樣本數）",
+    "scale": "尺度",
+    "db": "分貝",
+    "windows": {
+      "hann": "Hann",
+      "hamming": "Hamming",
+      "blackman": "Blackman",
+      "flattop": "Flat top（準確幅值）",
+      "rectangular": "矩形"
+    },
+    "scales": {
+      "amplitude": "幅值",
+      "psd": "功率頻譜密度"
+    },
+    "pickSpectrum": "選擇一個 Signal 以顯示頻譜",
+    "collecting": "等待樣本…",
+    "spectrumInfo": "{{samples}}/{{length}} 個樣本，取樣率 {{fs}} Hz · 解析度 {{res}} Hz · 峰值 {{peakHz}} Hz（{{peak}}）",
+    "axis": {
+      "frequency": "頻率 [Hz]",
+      "amplitude": "幅值 [{{units}}]",
+      "amplitudeDb": "幅值 [dB {{units}}]",
+      "psd": "PSD [{{units}}²/Hz]",
+      "psdDb": "PSD [dB {{units}}²/Hz]"
+    }
   }
 }

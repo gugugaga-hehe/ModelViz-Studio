@@ -217,6 +217,47 @@ export const TimeAnalysisResult = z.object({
 });
 export type TimeAnalysisResult = z.infer<typeof TimeAnalysisResult>;
 
+/** Window functions for spectra; flattop reads sine amplitudes accurately between bins. */
+export const SpectrumWindow = z.enum(["rectangular", "hann", "hamming", "blackman", "flattop"]);
+export type SpectrumWindow = z.infer<typeof SpectrumWindow>;
+
+/** FFT lengths offered (powers of two). */
+export const SPECTRUM_LENGTHS = [256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536] as const;
+
+/**
+ * FFT/PSD over the newest `length` samples of a Signal (telemetry, Log Replay or model output).
+ * Samples need not be evenly spaced: they are resampled onto a uniform grid at the median rate.
+ */
+export const SpectrumRequest = z.object({
+  /** Sample times in milliseconds, ascending. */
+  times: z.array(z.number()).min(16),
+  values: z.array(z.number()),
+  window: SpectrumWindow.default("hann"),
+  length: z.number().int().refine((n) => (SPECTRUM_LENGTHS as readonly number[]).includes(n), "length must be a power of two from 256 to 65536"),
+  /** Subtract the mean first, so the DC component does not leak into low frequencies. */
+  removeMean: z.boolean().default(true),
+});
+export type SpectrumRequest = z.infer<typeof SpectrumRequest>;
+
+export const SpectrumResult = z.object({
+  sampleRateHz: z.number(),
+  length: z.number(),
+  window: SpectrumWindow,
+  /** Samples actually used (fewer than `length` are zero-padded). */
+  samples: z.number(),
+  /** Bin spacing. */
+  resolutionHz: z.number(),
+  /** Equivalent noise bandwidth of the window. */
+  enbwHz: z.number(),
+  /** 0 … Nyquist. */
+  frequencies: z.array(z.number()),
+  /** One-sided amplitude spectrum: a sine of amplitude A shows a peak of height A. */
+  amplitude: z.array(z.number()),
+  /** One-sided power spectral density in units²/Hz: integrates to the Signal's variance. */
+  psd: z.array(z.number()),
+});
+export type SpectrumResult = z.infer<typeof SpectrumResult>;
+
 export const DiscretizationRequest = z.object({
   /** Continuous Block file to convert. */
   block: z.string(),
