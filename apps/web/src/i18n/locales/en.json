@@ -343,6 +343,34 @@
     "signal": "Signal",
     "latest": "Latest value",
     "units": "Units",
-    "empty": "No Panels. Add one with the buttons above; drag tabs to dock and split Panels."
+    "empty": "No Panels. Add one with the buttons above; drag tabs to dock and split Panels.",
+    "addFft": "Add FFT/PSD",
+    "fftTitle": "FFT/PSD {{n}}",
+    "hold": "Hold",
+    "window": "Window",
+    "length": "Length (samples)",
+    "scale": "Scale",
+    "db": "Decibels",
+    "windows": {
+      "hann": "Hann",
+      "hamming": "Hamming",
+      "blackman": "Blackman",
+      "flattop": "Flat top (accurate levels)",
+      "rectangular": "Rectangular"
+    },
+    "scales": {
+      "amplitude": "Amplitude",
+      "psd": "Power spectral density"
+    },
+    "pickSpectrum": "Select a Signal to see its spectrum",
+    "collecting": "Waiting for samples…",
+    "spectrumInfo": "{{samples}}/{{length}} samples at {{fs}} Hz · resolution {{res}} Hz · peak {{peakHz}} Hz ({{peak}})",
+    "axis": {
+      "frequency": "Frequency [Hz]",
+      "amplitude": "Amplitude [{{units}}]",
+      "amplitudeDb": "Amplitude [dB {{units}}]",
+      "psd": "PSD [{{units}}²/Hz]",
+      "psdDb": "PSD [dB {{units}}²/Hz]"
+    }
   }
 }

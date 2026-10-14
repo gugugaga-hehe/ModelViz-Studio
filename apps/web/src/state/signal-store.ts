@@ -40,6 +40,19 @@ export class SignalBuffer {
     return [xs, ys];
   }
 
+  /** The newest `count` samples (or all there are), oldest first; times in milliseconds. */
+  newest(count: number): { times: number[]; values: number[] } {
+    const k = Math.min(count, this.length);
+    const times = new Array<number>(k);
+    const values = new Array<number>(k);
+    for (let i = 0; i < k; i++) {
+      const at = (this.head + this.length - k + i) % CAPACITY;
+      times[i] = this.times[at]!;
+      values[i] = this.values[at]!;
+    }
+    return { times, values };
+  }
+
   latestTime(): number | null {
     if (!this.length) return null;
     return this.times[(this.head + this.length - 1) % CAPACITY]!;

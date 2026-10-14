@@ -7,20 +7,23 @@ import {
   type SerializedDockview,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { ChartLine, ChartScatter, Table } from "lucide-react";
+import { AudioLines, ChartLine, ChartScatter, Table } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { client, useSession } from "../state/session";
+import { type SpectrumSettings, SpectrumPanel } from "./panels/SpectrumPanel";
 import { TablePanel } from "./panels/TablePanel";
 import { XyPlotPanel } from "./panels/XyPlotPanel";
 import { TimePlotPanel } from "./TimePlotPanel";
 
 /** Panel kinds the workspace can hold; the key is the dockview component id saved in the layout. */
-type Kind = "time" | "xy" | "table";
-type PanelParams = { n: number; signals?: string[]; x?: string; y?: string };
+type Kind = "time" | "xy" | "table" | "fft";
+type PanelParams = { n: number; signals?: string[]; x?: string; y?: string } & Partial<SpectrumSettings>;
 
-const TITLE_KEY: Record<Kind, string> = { time: "plot.title", xy: "panels.xyTitle", table: "panels.tableTitle" };
+const TITLE_KEY: Record<Kind, string> = { time: "plot.title", xy: "panels.xyTitle", table: "panels.tableTitle", fft: "panels.fftTitle" };
+
+const SPECTRUM_DEFAULTS: SpectrumSettings = { signal: "", window: "hann", length: 4096, scale: "amplitude", db: false };
 /** Wait this long after the last change before writing layout.yaml. */
 const SAVE_DELAY_MS = 400;
 
@@ -49,6 +52,11 @@ const components: Record<Kind, React.FunctionComponent<IDockviewPanelProps<Panel
     const set = useParams(props);
     return <TablePanel n={props.params.n} selected={props.params.signals ?? []} onChange={(signals) => set({ signals })} />;
   },
+  fft: (props) => {
+    const set = useParams(props);
+    const { n, signal, window, length, scale, db } = { ...SPECTRUM_DEFAULTS, ...props.params };
+    return <SpectrumPanel n={n} settings={{ signal, window, length, scale, db }} onChange={set} />;
+  },
 };
 
 function Watermark(_: IWatermarkPanelProps) {
@@ -69,7 +77,7 @@ function addPanel(api: DockviewApi, kind: Kind): void {
     id: `${kind}-${n}`,
     component: kind,
     title: title(kind, n),
-    params: { n, ...(kind === "xy" ? { x: "", y: "" } : { signals: [] }) },
+    params: { n, ...(kind === "xy" ? { x: "", y: "" } : kind === "fft" ? SPECTRUM_DEFAULTS : { signals: [] }) },
     ...(reference ? { position: { referencePanel: reference.id, direction: kind === "time" ? "below" : "right" } } : {}),
   });
 }
@@ -179,6 +187,10 @@ export function Workspace() {
         <button className={btn} onClick={() => api && addPanel(api, "table")}>
           <Table size={14} />
           {t("panels.addTable")}
+        </button>
+        <button className={btn} onClick={() => api && addPanel(api, "fft")}>
+          <AudioLines size={14} />
+          {t("panels.addFft")}
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
