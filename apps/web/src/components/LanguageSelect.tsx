@@ -5,8 +5,9 @@ import { Select } from "./ui/controls";
 export function LanguageSelect() {
   const { t, i18n } = useTranslation();
   return (
-    <label className="flex items-center gap-2 text-sm text-muted">
-      {t("language.label")}
+    <label className="flex items-center gap-2 whitespace-nowrap text-sm text-muted">
+      {/* on narrow windows only the select shows; it keeps its accessible name */}
+      <span className="max-sm:sr-only">{t("language.label")}</span>
       <Select
         aria-label={t("language.label")}
         value={i18n.language}
