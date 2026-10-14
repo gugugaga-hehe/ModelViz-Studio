@@ -143,7 +143,19 @@
     "stimulus": "Stimulus response",
     "amplitude": "Amplitude",
     "duration": "Duration [s]",
-    "run": "Run"
+    "run": "Run",
+    "bode": "Frequency Response (Bode)",
+    "polezero": "Pole-zero map",
+    "loopAt": "Loop broken at",
+    "closedOnly": "(closed loop only)",
+    "method": {
+      "analytic": "analytic",
+      "measured": "measured"
+    },
+    "domain": {
+      "continuous": "continuous H(jω)",
+      "discrete": "discrete H(e^jωT)"
+    }
   },
   "disc": {
     "title": "Discretization",
@@ -158,5 +170,31 @@
     "continuous": "continuous",
     "discrete": "discrete",
     "needsBlock": "Open a continuous linear Block"
+  },
+  "metrics": {
+    "output": "Output",
+    "final": "Final",
+    "overshoot": "Overshoot [%]",
+    "rise": "Rise [s]",
+    "settling": "Settling 2% [s]",
+    "peakTime": "Peak [s]",
+    "dcGain": "DC [dB]",
+    "bandwidth": "Bandwidth [Hz]",
+    "peakGain": "Peak [dB]",
+    "peakHz": "Peak at [Hz]",
+    "gainMargin": "Gain margin [dB]",
+    "phaseCrossover": "at [Hz]",
+    "phaseMargin": "Phase margin [°]",
+    "gainCrossover": "at [Hz]"
+  },
+  "pz": {
+    "title": "Pole-zero map",
+    "sPlane": "s-plane",
+    "zPlane": "z-plane",
+    "stable": "stable",
+    "unstable": "unstable",
+    "poles": "Poles",
+    "zeros": "Zeros",
+    "zerosOf": "Zeros of output"
   }
 }

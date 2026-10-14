@@ -1,5 +1,6 @@
 import type { TimeAnalysisRequest, TimeAnalysisResult } from "@modelviz/protocol";
 import { ProtocolFailure } from "../errors.ts";
+import { stepMetrics } from "./lti.ts";
 import { stimulusFn } from "./stimulus.ts";
 import { SystemEngine, SystemError, loadSystem } from "./system.ts";
 
@@ -39,12 +40,16 @@ export async function runTimeAnalysis(projectPath: string, req: TimeAnalysisRequ
   }
   const series: Record<string, number[]> = { [input]: Array.from(u) };
   engine.outputs.forEach((name, i) => (series[name] = Array.from(outputs[i]!)));
+  const times = Array.from({ length: count }, (_, k) => k / fs);
   return {
     system: req.system,
     kind: req.kind,
     input,
     sampleRateHz: fs,
-    times: Array.from({ length: count }, (_, k) => k / fs),
+    times,
     series,
+    ...(req.kind === "step"
+      ? { metrics: Object.fromEntries(engine.outputs.map((name) => [name, stepMetrics(times, series[name]!)])) }
+      : {}),
   };
 }

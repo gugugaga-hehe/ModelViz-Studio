@@ -32,7 +32,7 @@ export function ModelLab() {
   const canDiscretize = !!openBlock && !openBlock.error && openBlock.domain === "continuous" && !!openBlock.linear;
   const activeTool = tool === "discretize" && canDiscretize ? "discretize" : "analysis";
   return (
-    <div className="flex min-h-0 flex-1 gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 gap-3">
       <aside className="flex w-56 shrink-0 flex-col gap-3 overflow-auto rounded-lg border border-border bg-surface p-3">
         <section aria-labelledby="blocks-heading">
           <h2 id="blocks-heading" className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -64,10 +64,10 @@ export function ModelLab() {
         </section>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-        <div className="flex min-h-0 flex-1 rounded-lg border border-border bg-surface p-3">
+        <div className="flex min-h-0 min-w-0 flex-1 rounded-lg border border-border bg-surface p-3">
           {open ? <FileEditor key={open} path={open} /> : <p className="m-auto text-sm text-muted">{t("model.pick")}</p>}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
           <div role="tablist" aria-label={t("model.tools")} className="flex gap-1">
             {(["analysis", "discretize"] as const).map((k) => (
               <button
@@ -84,11 +84,11 @@ export function ModelLab() {
             ))}
           </div>
           {/* both stay mounted so their settings survive switching tools */}
-          <div className={activeTool === "analysis" ? "flex min-h-0 flex-1" : "hidden"}>
+          <div className={activeTool === "analysis" ? "flex min-h-0 min-w-0 flex-1" : "hidden"}>
             <AnalysisPanel system={openSystem} />
           </div>
           {canDiscretize && (
-            <div className={activeTool === "discretize" ? "flex min-h-0 flex-1" : "hidden"}>
+            <div className={activeTool === "discretize" ? "flex min-h-0 min-w-0 flex-1" : "hidden"}>
               <DiscretizePanel key={openBlock!.path} block={openBlock!.path} />
             </div>
           )}

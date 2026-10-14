@@ -115,7 +115,10 @@ export class ActiveSource {
           opts.onState(src.state());
         }
       },
-      () => opts.onState(src.state()),
+      () => {
+        if (player.error) src.reject(`Log Replay failed: ${player.error}`);
+        else opts.onState(src.state());
+      },
       speed,
     );
     src.player = player;
@@ -187,7 +190,7 @@ export class ActiveSource {
     );
   }
 
-  private reject(error: string): void {
+  reject(error: string): void {
     this.clearCheckTimer();
     this.stopTarget?.();
     this.stopTarget = null;

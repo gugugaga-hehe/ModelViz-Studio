@@ -124,6 +124,8 @@ export const SystemInfo = z.object({
   sampleRateHz: z.number().optional(),
   inputs: z.array(z.string()).default([]),
   outputs: z.array(z.string()).default([]),
+  /** Every Block input Port (`block.port`), e.g. for choosing where to break a loop. */
+  ports: z.array(z.string()).default([]),
   issues: z.array(ValidationIssue),
 });
 export type SystemInfo = z.infer<typeof SystemInfo>;
@@ -154,6 +156,19 @@ export const TimeAnalysisRequest = z.object({
 });
 export type TimeAnalysisRequest = z.infer<typeof TimeAnalysisRequest>;
 
+/** Metrics of a step response, relative to its final value. */
+export const StepMetrics = z.object({
+  finalValue: z.number(),
+  /** Percent above the final value (0 if never exceeded). */
+  overshootPercent: z.number(),
+  /** 10 % → 90 % of the final value, seconds. */
+  riseTimeS: z.number().nullable(),
+  /** Last time the response leaves the ±2 % band, seconds. */
+  settlingTimeS: z.number().nullable(),
+  peakTimeS: z.number(),
+});
+export type StepMetrics = z.infer<typeof StepMetrics>;
+
 export const TimeAnalysisResult = z.object({
   system: z.string(),
   kind: z.string(),
@@ -163,6 +178,8 @@ export const TimeAnalysisResult = z.object({
   times: z.array(z.number()),
   /** The driving input and every System output. */
   series: z.record(z.string(), z.array(z.number())),
+  /** Step responses only: Metrics per System output. */
+  metrics: z.record(z.string(), StepMetrics).optional(),
 });
 export type TimeAnalysisResult = z.infer<typeof TimeAnalysisResult>;
 
@@ -202,3 +219,63 @@ export const DiscretizationComparison = z.object({
   maxAbsError: z.number(),
 });
 export type DiscretizationComparison = z.infer<typeof DiscretizationComparison>;
+
+export const Complex = z.object({ re: z.number(), im: z.number() });
+export type Complex = z.infer<typeof Complex>;
+
+export const FrequencyAnalysisRequest = z.object({
+  system: z.string(),
+  input: z.string().optional(),
+  fMinHz: z.number().positive().optional(),
+  fMaxHz: z.number().positive().optional(),
+  points: z.number().int().min(10).max(5000).default(400),
+  parameters: z.record(z.string(), z.record(z.string(), z.number())).default({}),
+  /** Also compute the loop transfer broken at this input Port (e.g. "plant.u") and its margins. */
+  openLoopAt: z.string().optional(),
+});
+export type FrequencyAnalysisRequest = z.infer<typeof FrequencyAnalysisRequest>;
+
+export const FrequencyMetrics = z.object({
+  dcGainDb: z.number().nullable(),
+  /** First frequency where the gain falls to 1/√2 (≈ −3 dB) of its DC value. */
+  bandwidthHz: z.number().nullable(),
+  peakGainDb: z.number(),
+  peakHz: z.number(),
+});
+export type FrequencyMetrics = z.infer<typeof FrequencyMetrics>;
+
+export const BodeData = z.object({ magnitudeDb: z.array(z.number()), phaseDeg: z.array(z.number()) });
+export type BodeData = z.infer<typeof BodeData>;
+
+export const LoopMetrics = z.object({
+  gainMarginDb: z.number().nullable(),
+  phaseCrossoverHz: z.number().nullable(),
+  phaseMarginDeg: z.number().nullable(),
+  gainCrossoverHz: z.number().nullable(),
+});
+export type LoopMetrics = z.infer<typeof LoopMetrics>;
+
+export const FrequencyAnalysisResult = z.object({
+  system: z.string(),
+  input: z.string(),
+  /** Always stated (ADR: a Frequency Response is analytic or measured). */
+  method: z.enum(["analytic", "measured"]),
+  /** continuous: H(jω); discrete: H(e^{jωT}) with continuous Blocks held by ZOH. */
+  domain: z.enum(["continuous", "discrete"]),
+  frequencies: z.array(z.number()),
+  responses: z.record(z.string(), BodeData),
+  metrics: z.record(z.string(), FrequencyMetrics),
+  loop: BodeData.extend({ at: z.string() }).merge(LoopMetrics).optional(),
+});
+export type FrequencyAnalysisResult = z.infer<typeof FrequencyAnalysisResult>;
+
+export const PoleZeroResult = z.object({
+  system: z.string(),
+  input: z.string(),
+  domain: z.enum(["continuous", "discrete"]),
+  poles: z.array(Complex),
+  /** Zeros of the transfer from the input to each System output. */
+  zeros: z.record(z.string(), z.array(Complex)),
+  stable: z.boolean(),
+});
+export type PoleZeroResult = z.infer<typeof PoleZeroResult>;
