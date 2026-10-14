@@ -3,6 +3,7 @@ import { Play, X } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, useProgress, useSession } from "../../state/session";
+import { seriesColor } from "../plot-theme";
 import { Heatmap } from "./Heatmap";
 import { SeriesPlot } from "./SeriesPlot";
 
@@ -226,7 +227,7 @@ export function SweepPanel({ system }: { system: string | null }) {
           xLabel={`${result.axes[0]!.block}.${result.axes[0]!.parameter}`}
           logX={result.axes[0]!.scale === "log"}
           height={240}
-          series={[{ label: t(`sweep.m.${metric}`), values: (values as (number | null)[]).map((v) => v ?? Number.NaN), color: "#2563eb", points: false }]}
+          series={[{ label: t(`sweep.m.${metric}`), values: (values as (number | null)[]).map((v) => v ?? Number.NaN), color: seriesColor(0), points: false }]}
         />
       )}
       {result && values && result.axes.length === 2 && (

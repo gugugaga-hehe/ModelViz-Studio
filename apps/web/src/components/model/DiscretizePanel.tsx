@@ -3,6 +3,7 @@ import { GitCompare, Save } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { client, refreshModels } from "../../state/session";
+import { seriesColor } from "../plot-theme";
 import { SeriesPlot } from "./SeriesPlot";
 
 /** Discretization of the open continuous Block: compare, then save as a discrete Block. */
@@ -103,8 +104,8 @@ export function DiscretizePanel({ block }: { block: string }) {
             x={cmp.times}
             testId="disc-plot"
             series={[
-              { label: t("disc.continuous"), values: cmp.continuous, color: "#2563eb" },
-              { label: t("disc.discrete"), values: cmp.discrete, color: "#dc2626", points: true },
+              { label: t("disc.continuous"), values: cmp.continuous, color: seriesColor(0) },
+              { label: t("disc.discrete"), values: cmp.discrete, color: seriesColor(1), points: true },
             ]}
           />
         </>

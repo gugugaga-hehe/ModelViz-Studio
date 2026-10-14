@@ -22,6 +22,16 @@
   --mv-ok: #16a34a;
   --mv-warn: #d97706;
   --mv-danger: #dc2626;
+  /* plot series, in order; dark mode uses lighter variants of the same hues */
+  --mv-series-1: #2563eb;
+  --mv-series-2: #dc2626;
+  --mv-series-3: #16a34a;
+  --mv-series-4: #d97706;
+  --mv-series-5: #7c3aed;
+  --mv-series-6: #0891b2;
+  --mv-series-7: #db2777;
+  --mv-series-8: #65a30d;
+  --mv-series-ref: #64748b;
   color-scheme: light dark;
 }
 
@@ -36,6 +46,15 @@
     --mv-ok: #4ade80;
     --mv-warn: #fbbf24;
     --mv-danger: #f87171;
+    --mv-series-1: #60a5fa;
+    --mv-series-2: #f87171;
+    --mv-series-3: #4ade80;
+    --mv-series-4: #fbbf24;
+    --mv-series-5: #a78bfa;
+    --mv-series-6: #22d3ee;
+    --mv-series-7: #f472b6;
+    --mv-series-8: #a3e635;
+    --mv-series-ref: #94a3b8;
   }
 }
 

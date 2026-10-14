@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { client, signalStore } from "../../state/session";
+import { resolveColor, seriesColor, usePlotTheme } from "../plot-theme";
 import { useRetained } from "../TimePlotPanel";
 import { SignalSelect, useSignalsById } from "./SignalPicker";
 
@@ -138,23 +139,21 @@ function SpectrumPlot({ signal, settings, held }: { signal: SignalInfo; settings
       : settings.db ? t("panels.axis.psdDb", { units }) : t("panels.axis.psd", { units });
 
   const plotRef = useRef<uPlot | null>(null);
+  const theme = usePlotTheme();
 
   // one plot per Signal and scale; new spectra only replace its data
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const css = getComputedStyle(document.documentElement);
-    const muted = css.getPropertyValue("--mv-muted").trim();
-    const grid = css.getPropertyValue("--mv-border").trim();
     const plot = new uPlot(
       {
         width: el.clientWidth,
         height: Math.max(140, el.clientHeight - 30),
         scales: { x: { time: false } },
-        series: [{ label: "Hz" }, { label: signal.id, stroke: css.getPropertyValue("--mv-accent").trim(), width: 1.25, points: { show: false } }],
+        series: [{ label: "Hz" }, { label: signal.id, stroke: resolveColor(seriesColor(0)), width: 1.25, points: { show: false } }],
         axes: [
-          { stroke: muted, grid: { stroke: grid }, label: t("panels.axis.frequency") },
-          { stroke: muted, grid: { stroke: grid }, label: yLabel, size: 60 },
+          { stroke: theme.axis, grid: { stroke: theme.grid }, label: t("panels.axis.frequency") },
+          { stroke: theme.axis, grid: { stroke: theme.grid }, label: yLabel, size: 60 },
         ],
         legend: { show: false },
         cursor: { drag: { x: true, y: false, setScale: true } },
@@ -170,7 +169,7 @@ function SpectrumPlot({ signal, settings, held }: { signal: SignalInfo; settings
       plot.destroy();
       plotRef.current = null;
     };
-  }, [signal, yLabel, t]);
+  }, [signal, yLabel, t, theme]);
 
   useEffect(() => {
     const plot = plotRef.current;
@@ -179,7 +178,7 @@ function SpectrumPlot({ signal, settings, held }: { signal: SignalInfo; settings
     // dB of amplitude is 20·log10, of power 10·log10; the floor keeps empty bins finite
     const y = settings.db ? raw.map((v) => (settings.scale === "amplitude" ? 20 : 10) * Math.log10(Math.max(v, 1e-12))) : raw;
     plot.setData([result.frequencies, y]);
-  }, [result, settings.scale, settings.db, yLabel]);
+  }, [result, settings.scale, settings.db, yLabel, theme]);
 
   // strongest component above DC, for a quick reading
   let peak = -1;

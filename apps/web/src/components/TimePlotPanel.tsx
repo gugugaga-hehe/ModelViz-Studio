@@ -7,6 +7,7 @@ import "uplot/dist/uPlot.min.css";
 import { retainSignals, signalStore } from "../state/session";
 import { SignalPicker, useSignalsById } from "./panels/SignalPicker";
 import { alignedWindow, wheelZoomPanPlugin } from "./plot-data";
+import { resolveColor, seriesColor, usePlotTheme } from "./plot-theme";
 
 /** Visible time span of the live plot (seconds). */
 const WINDOW_SECONDS = 10;
@@ -15,7 +16,6 @@ const MIN_FRAME_MS = 33;
 /** Cursor sync group shared by all time plots. */
 const SYNC_KEY = "time-plots";
 
-export const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
 
 /** Keeps the selected Signals subscribed while the Panel shows them. */
 export function useRetained(signals: SignalInfo[]): void {
@@ -64,6 +64,7 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
   /** Re-reads the buffers for the visible x range (set while the plot exists). */
   const pausedRange = useRef<(() => void) | null>(null);
   const pausedRef = useRef(paused);
+  const theme = usePlotTheme();
   const [samples, setSamples] = useState(0);
   /** Points handed to the plot in the last update, per Signal (for tests: bounded by the width). */
   const [points, setPoints] = useState(0);
@@ -73,10 +74,6 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
   useEffect(() => {
     const el = host.current;
     if (!el || signals.length === 0) return;
-    // Canvas cannot resolve CSS variables, so read the theme colours once.
-    const css = getComputedStyle(document.documentElement);
-    const muted = css.getPropertyValue("--mv-muted").trim();
-    const grid = css.getPropertyValue("--mv-border").trim();
     const opts: uPlot.Options = {
       width: el.clientWidth,
       height: Math.max(160, el.clientHeight - 40),
@@ -90,15 +87,15 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
         {},
         ...signals.map((s, i) => ({
           label: s.id,
-          stroke: PALETTE[i % PALETTE.length],
+          stroke: resolveColor(seriesColor(i)),
           width: 1.5,
           spanGaps: true,
           points: { show: false },
         })),
       ],
       axes: [
-        { stroke: muted, grid: { stroke: grid } },
-        { stroke: muted, grid: { stroke: grid } },
+        { stroke: theme.axis, grid: { stroke: theme.grid } },
+        { stroke: theme.axis, grid: { stroke: theme.grid } },
       ],
       legend: { live: true },
       plugins: [wheelZoomPanPlugin(() => {})],
@@ -164,7 +161,7 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
       plot.destroy();
       plotRef.current = null;
     };
-  }, [signals]);
+  }, [signals, theme]);
 
   // On pause, keep showing the current window; zooming and panning then load data for the range shown.
   useEffect(() => {
@@ -174,7 +171,7 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
     const xMax = newest / 1000;
     plot.setScale("x", { min: xMax - WINDOW_SECONDS, max: xMax });
     pausedRange.current?.();
-  }, [paused, signals]);
+  }, [paused, signals, theme]);
 
   return (
     <div
@@ -183,6 +180,7 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
       data-samples={samples}
       data-points={points}
       data-frames={frames}
+      data-grid-color={theme.grid}
       data-paused={paused}
       title={paused ? t("plot.pausedHint") : undefined}
     >

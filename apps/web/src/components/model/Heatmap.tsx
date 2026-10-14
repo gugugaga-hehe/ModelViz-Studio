@@ -1,20 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-/** Sequential colour ramp (dark blue → teal → yellow), readable in light and dark themes. */
-const STOPS: [number, number, number][] = [
-  [68, 1, 84],
-  [59, 82, 139],
-  [33, 145, 140],
-  [94, 201, 98],
-  [253, 231, 37],
-];
-function ramp(t: number): string {
-  const x = Math.min(1, Math.max(0, t)) * (STOPS.length - 1);
-  const i = Math.min(STOPS.length - 2, Math.floor(x));
-  const f = x - i;
-  const [a, b] = [STOPS[i]!, STOPS[i + 1]!];
-  return `rgb(${a.map((v, k) => Math.round(v + (b[k]! - v) * f)).join(",")})`;
-}
+import { MISSING_COLOR, SEQUENTIAL_GRADIENT, sequentialColor } from "../plot-theme";
 
 const fmt = (v: number) => Number(v.toPrecision(4)).toString();
 
@@ -56,7 +41,7 @@ export function Heatmap({
       row.forEach((v, j) => {
         // first row at the bottom, like a y axis
         const y = H - (i + 1) * ch;
-        ctx.fillStyle = v === null ? "rgba(128,128,128,0.25)" : ramp(hi === lo ? 0.5 : (v - lo) / (hi - lo));
+        ctx.fillStyle = v === null ? MISSING_COLOR : sequentialColor(hi === lo ? 0.5 : (v - lo) / (hi - lo));
         // overlap by a pixel so fractional cell sizes leave no seams
         ctx.fillRect(Math.floor(j * cw), Math.floor(y), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
       }),
@@ -95,7 +80,7 @@ export function Heatmap({
         </div>
         <div className="flex flex-col items-center gap-1">
           <span className="text-muted">{fmt(hi)}</span>
-          <div className="w-3 flex-1 rounded" style={{ background: `linear-gradient(to top, ${STOPS.map((_, k) => ramp(k / (STOPS.length - 1))).join(",")})` }} />
+          <div className="w-3 flex-1 rounded" style={{ background: `linear-gradient(to top, ${SEQUENTIAL_GRADIENT})` }} />
           <span className="text-muted">{fmt(lo)}</span>
         </div>
       </div>
