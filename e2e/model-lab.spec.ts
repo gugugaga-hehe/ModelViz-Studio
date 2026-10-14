@@ -36,6 +36,12 @@ test("edits Blocks, builds a System from the Loop Template and runs a step respo
     await expect(bode).toHaveAttribute("data-method", "analytic");
     await expect(bode).toContainText("analytic");
     await expect(page.getByTestId("loop-metrics").locator('[data-metric="phaseMarginDeg"]')).toHaveText(/^\d/);
+    // the same loop, measured by simulation
+    await analysis.getByLabel("Method").selectOption("measured");
+    await analysis.getByRole("button", { name: "Run" }).click();
+    await expect(bode).toHaveAttribute("data-method", "measured", { timeout: 20000 });
+    await expect(bode).toContainText("measured");
+    await analysis.getByLabel("Method").selectOption("auto");
     await analysis.getByLabel("Analysis", { exact: true }).selectOption("polezero");
     await analysis.getByRole("button", { name: "Run" }).click();
     await expect(page.getByTestId("pole-zero-plot")).toHaveAttribute("data-poles", "4");

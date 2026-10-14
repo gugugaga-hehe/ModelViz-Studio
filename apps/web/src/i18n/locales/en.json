@@ -155,7 +155,10 @@
     "domain": {
       "continuous": "continuous H(jω)",
       "discrete": "discrete H(e^jωT)"
-    }
+    },
+    "methodLabel": "Method",
+    "methodAuto": "auto ({{method}})",
+    "measureAmplitude": "Measurement amplitude"
   },
   "disc": {
     "title": "Discretization",

@@ -2,7 +2,7 @@ import type { FrequencyAnalysisResult, PoleZeroResult, Stimulus, TimeAnalysisRes
 import { Play } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { client, useSession } from "../../state/session";
+import { client, useProgress, useSession } from "../../state/session";
 import { MetricsTable } from "./MetricsTable";
 import { PoleZeroPlot } from "./PoleZeroPlot";
 import { type Series, SeriesPlot } from "./SeriesPlot";
@@ -29,6 +29,10 @@ export function AnalysisPanel({ system }: { system: string | null }) {
   const [amp, setAmp] = useState("1");
   const [duration, setDuration] = useState("1");
   const [loopAt, setLoopAt] = useState("");
+  const [method, setMethod] = useState<"auto" | "analytic" | "measured">("auto");
+  const [mAmp, setMAmp] = useState("1");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const progress = useProgress((s) => (jobId ? s[jobId] : undefined));
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,9 +49,17 @@ export function AnalysisPanel({ system }: { system: string | null }) {
     setBusy(true);
     try {
       if (kind === "bode") {
+        const id = crypto.randomUUID();
+        setJobId(id);
         setResult({
           kind: "bode",
-          data: await client.request("analysis.frequency", { system: current, ...(loopAt ? { openLoopAt: loopAt } : {}) }),
+          data: await client.request("analysis.frequency", {
+            system: current,
+            method,
+            amplitude: Number(mAmp),
+            id,
+            ...(loopAt ? { openLoopAt: loopAt } : {}),
+          }),
         });
       } else if (kind === "polezero") {
         setResult({ kind: "polezero", data: await client.request("analysis.poleZero", { system: current }) });
@@ -70,6 +82,7 @@ export function AnalysisPanel({ system }: { system: string | null }) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      setJobId(null);
     }
   }
 
@@ -133,6 +146,22 @@ export function AnalysisPanel({ system }: { system: string | null }) {
         )}
         {kind === "bode" && (
           <label className="flex flex-col gap-1">
+            {t("analysis.methodLabel")}
+            <select aria-label={t("analysis.methodLabel")} className={input} value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
+              <option value="auto">{t("analysis.methodAuto", { method: t(info?.linear ? "analysis.method.analytic" : "analysis.method.measured") })}</option>
+              <option value="analytic">{t("analysis.method.analytic")}</option>
+              <option value="measured">{t("analysis.method.measured")}</option>
+            </select>
+          </label>
+        )}
+        {kind === "bode" && (method === "measured" || (method === "auto" && info && !info.linear)) && (
+          <label className="flex w-20 flex-col gap-1">
+            {t("analysis.amplitude")}
+            <input aria-label={t("analysis.measureAmplitude")} className={input} value={mAmp} onChange={(e) => setMAmp(e.target.value)} inputMode="decimal" />
+          </label>
+        )}
+        {kind === "bode" && (
+          <label className="flex flex-col gap-1">
             {t("analysis.loopAt")}
             <select aria-label={t("analysis.loopAt")} className={input} value={loopAt} onChange={(e) => setLoopAt(e.target.value)}>
               <option value="">{t("analysis.closedOnly")}</option>
@@ -148,6 +177,14 @@ export function AnalysisPanel({ system }: { system: string | null }) {
           <Play size={12} />
           {t("analysis.run")}
         </button>
+        {jobId && progress && (
+          <>
+            <progress className="h-2 w-32" max={progress.total} value={progress.done} aria-label={t("sweep.progress")} />
+            <button type="button" onClick={() => void client.request("analysis.cancel", { id: jobId })} className="rounded border border-border px-2 py-1">
+              {t("sweep.cancel")}
+            </button>
+          </>
+        )}
       </form>
       {error && (
         <p role="alert" className="text-xs text-danger">

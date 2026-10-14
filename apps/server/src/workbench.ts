@@ -266,29 +266,17 @@ export class Workbench {
       const req = Methods["analysis.discretization"].params.parse(p);
       return compareDiscretization(this.requireProject().path, req);
     },
-    "analysis.frequency": async (p) => runFrequencyAnalysis(this.requireProject().path, Methods["analysis.frequency"].params.parse(p)),
+    "analysis.frequency": async (p) => {
+      const req = Methods["analysis.frequency"].params.parse(p);
+      const project = this.requireProject();
+      if (!req.id) return runFrequencyAnalysis(project.path, req, this.python?.python ?? null);
+      return this.job(req.id, (ctl) => runFrequencyAnalysis(project.path, req, this.python?.python ?? null, ctl));
+    },
     "analysis.poleZero": async (p) => runPoleZero(this.requireProject().path, Methods["analysis.poleZero"].params.parse(p)),
     "analysis.sweep": async (p) => {
       const req = Methods["analysis.sweep"].params.parse(p);
       const project = this.requireProject();
-      if (this.jobs.has(req.id)) throw new ProtocolFailure("conflict", `An Analysis with id ${req.id} is already running`);
-      let last = 0;
-      const ctl: SweepControl = {
-        cancelled: false,
-        progress: (done, total) => {
-          const now = performance.now();
-          if (done === total || now - last > 100) {
-            last = now;
-            this.broadcast("analysis.progress", { id: req.id, done, total });
-          }
-        },
-      };
-      this.jobs.set(req.id, ctl);
-      try {
-        return await runSweep(project.path, req, ctl, this.python?.python ?? null);
-      } finally {
-        this.jobs.delete(req.id);
-      }
+      return this.job(req.id, (ctl) => runSweep(project.path, req, ctl, this.python?.python ?? null));
     },
     "analysis.cancel": async (p) => {
       const { id } = Methods["analysis.cancel"].params.parse(p);
@@ -327,6 +315,28 @@ export class Workbench {
       return src.state();
     },
   };
+
+  /** Runs a cancellable, progress-reporting Analysis registered under a client-chosen id. */
+  private async job<T>(id: string, work: (ctl: SweepControl) => Promise<T>): Promise<T> {
+    if (this.jobs.has(id)) throw new ProtocolFailure("conflict", `An Analysis with id ${id} is already running`);
+    let last = 0;
+    const ctl: SweepControl = {
+      cancelled: false,
+      progress: (done, total) => {
+        const now = performance.now();
+        if (done === total || now - last > 100) {
+          last = now;
+          this.broadcast("analysis.progress", { id, done, total });
+        }
+      },
+    };
+    this.jobs.set(id, ctl);
+    try {
+      return await work(ctl);
+    } finally {
+      this.jobs.delete(id);
+    }
+  }
 
   /** Whether any Source is running (reloading the Project would interrupt it). */
   private devicesBusy(): boolean {
