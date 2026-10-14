@@ -174,6 +174,12 @@ export const RecordedSignal = z.object({
 });
 export type RecordedSignal = z.infer<typeof RecordedSignal>;
 
+/**
+ * Most samples one time-domain run may produce (durationS × the System's sample rate + 1): what
+ * the server holds per output and the client can plot.
+ */
+export const MAX_TIME_SAMPLES = 1_000_000;
+
 export const TimeAnalysisRequest = z.object({
   /** Client-chosen id; when given, the Analysis can be cancelled with `analysis.cancel`. */
   id: z.string().optional(),
