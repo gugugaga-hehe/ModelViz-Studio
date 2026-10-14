@@ -165,3 +165,40 @@ export const TimeAnalysisResult = z.object({
   series: z.record(z.string(), z.array(z.number())),
 });
 export type TimeAnalysisResult = z.infer<typeof TimeAnalysisResult>;
+
+export const DiscretizationRequest = z.object({
+  /** Continuous Block file to convert. */
+  block: z.string(),
+  method: z.enum(["zoh", "tustin"]),
+  sampleRateHz: z.number().positive(),
+  /** Tustin only: frequency at which the discrete response matches the continuous one exactly. */
+  prewarpHz: z.number().positive().optional(),
+  parameters: z.record(z.string(), z.number()).default({}),
+  /** Write the discrete Block to this Project path (e.g. blocks/lpf-1k.yaml). */
+  save: z.string().optional(),
+});
+export type DiscretizationRequest = z.infer<typeof DiscretizationRequest>;
+
+export const DiscretizationResult = z.object({
+  method: z.enum(["zoh", "tustin"]),
+  sampleRateHz: z.number(),
+  /** Descending powers of z (SISO Blocks). */
+  numerator: z.array(z.number()).optional(),
+  denominator: z.array(z.number()).optional(),
+  /** Discrete state-space matrices (always provided). */
+  A: z.array(z.array(z.number())),
+  B: z.array(z.array(z.number())),
+  C: z.array(z.array(z.number())),
+  D: z.array(z.array(z.number())),
+  saved: z.string().optional(),
+});
+export type DiscretizationResult = z.infer<typeof DiscretizationResult>;
+
+export const DiscretizationComparison = z.object({
+  times: z.array(z.number()),
+  input: z.array(z.number()),
+  continuous: z.array(z.number()),
+  discrete: z.array(z.number()),
+  maxAbsError: z.number(),
+});
+export type DiscretizationComparison = z.infer<typeof DiscretizationComparison>;

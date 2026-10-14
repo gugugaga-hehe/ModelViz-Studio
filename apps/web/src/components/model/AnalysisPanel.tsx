@@ -1,10 +1,9 @@
 import type { Stimulus, TimeAnalysisResult } from "@modelviz/protocol";
 import { Play } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import uPlot from "uplot";
-import "uplot/dist/uPlot.min.css";
 import { client, useSession } from "../../state/session";
+import { SeriesPlot } from "./SeriesPlot";
 
 const PALETTE = ["#64748b", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"];
 type Kind = "step" | "impulse" | "stimulus";
@@ -122,45 +121,26 @@ export function AnalysisPanel({ system }: { system: string | null }) {
 }
 
 function ResultPlot({ result }: { result: TimeAnalysisResult | null }) {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = host.current;
-    if (!el || !result) return;
-    const css = getComputedStyle(document.documentElement);
-    const muted = css.getPropertyValue("--mv-muted").trim();
-    const grid = css.getPropertyValue("--mv-border").trim();
-    const names = Object.keys(result.series);
-    const plot = new uPlot(
-      {
-        width: el.clientWidth,
-        height: Math.max(220, el.clientHeight - 40),
-        scales: { x: { time: false } },
-        series: [
-          { label: "t [s]" },
-          ...names.map((n, i) => ({ label: n, stroke: PALETTE[i % PALETTE.length], width: n === result.input ? 1 : 1.75, dash: n === result.input ? [4, 4] : [] })),
-        ],
-        axes: [
-          { stroke: muted, grid: { stroke: grid } },
-          { stroke: muted, grid: { stroke: grid } },
-        ],
-      },
-      [result.times, ...names.map((n) => result.series[n]!)],
-      el,
-    );
-    const ro = new ResizeObserver(() => plot.setSize({ width: el.clientWidth, height: Math.max(220, el.clientHeight - 40) }));
-    ro.observe(el);
-    return () => {
-      ro.disconnect();
-      plot.destroy();
-    };
-  }, [result]);
+  const series = useMemo(
+    () =>
+      result
+        ? Object.keys(result.series).map((n, i) => ({
+            label: n,
+            values: result.series[n]!,
+            color: PALETTE[i % PALETTE.length]!,
+            dashed: n === result.input,
+          }))
+        : [],
+    [result],
+  );
   return (
     <div
-      ref={host}
-      className="min-h-64 flex-1 rounded border border-border bg-surface"
+      className="flex min-h-0 flex-1 flex-col"
       data-testid="analysis-result"
       data-points={result?.times.length ?? 0}
       data-final={result ? JSON.stringify(Object.fromEntries(Object.entries(result.series).map(([k, v]) => [k, v.at(-1)]))) : ""}
-    />
+    >
+      {result && <SeriesPlot x={result.times} series={series} />}
+    </div>
   );
 }

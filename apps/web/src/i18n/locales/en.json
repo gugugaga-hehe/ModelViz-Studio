@@ -119,7 +119,8 @@
     "content": "File content",
     "save": "Save",
     "unsaved": "unsaved",
-    "issues": "Issues"
+    "issues": "Issues",
+    "tools": "Tools"
   },
   "loop": {
     "new": "Loop Template",
@@ -143,5 +144,19 @@
     "amplitude": "Amplitude",
     "duration": "Duration [s]",
     "run": "Run"
+  },
+  "disc": {
+    "title": "Discretization",
+    "method": "Method",
+    "rate": "Rate [Hz]",
+    "prewarp": "Prewarp [Hz]",
+    "compare": "Compare",
+    "saveAs": "Save as",
+    "save": "Save discrete Block",
+    "saved": "Saved {{path}}",
+    "maxError": "Largest difference: {{value}}",
+    "continuous": "continuous",
+    "discrete": "discrete",
+    "needsBlock": "Open a continuous linear Block"
   }
 }

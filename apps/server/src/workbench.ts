@@ -19,6 +19,7 @@ import { type CsvTable, CsvReplaySource, csvInfo, importCsv, loadImports } from 
 import { ProtocolFailure } from "./errors.ts";
 import { listBlocks, listFiles, listSystems, readProjectFile, writeLoopTemplate, writeProjectFile } from "./model/store.ts";
 import { loadSystem } from "./model/system.ts";
+import { compareDiscretization, discretizeBlock } from "./model/discretization-service.ts";
 import { runTimeAnalysis } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
@@ -246,6 +247,17 @@ export class Workbench {
       const path = await writeLoopTemplate(project.path, name, sampleRateHz, controller, plant, sensor);
       if (!this.devicesBusy()) await this.setProject(await openProject(project.path));
       return (await listSystems(project.path)).find((s) => s.path === path)!;
+    },
+    "block.discretize": async (p) => {
+      const req = Methods["block.discretize"].params.parse(p);
+      const project = this.requireProject();
+      const result = await discretizeBlock(project.path, req);
+      if (result.saved && !this.devicesBusy()) await this.setProject(await openProject(project.path));
+      return result;
+    },
+    "analysis.discretization": async (p) => {
+      const req = Methods["analysis.discretization"].params.parse(p);
+      return compareDiscretization(this.requireProject().path, req);
     },
     "analysis.time": async (p) => {
       const req = Methods["analysis.time"].params.parse(p);

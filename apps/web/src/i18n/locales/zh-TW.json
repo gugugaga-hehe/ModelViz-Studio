@@ -119,7 +119,8 @@
     "content": "檔案內容",
     "save": "儲存",
     "unsaved": "未儲存",
-    "issues": "問題"
+    "issues": "問題",
+    "tools": "工具"
   },
   "loop": {
     "new": "Loop Template",
@@ -143,5 +144,19 @@
     "amplitude": "振幅",
     "duration": "時長 [s]",
     "run": "執行"
+  },
+  "disc": {
+    "title": "Discretization",
+    "method": "方法",
+    "rate": "取樣率 [Hz]",
+    "prewarp": "預扭曲 [Hz]",
+    "compare": "比較",
+    "saveAs": "另存為",
+    "save": "儲存離散 Block",
+    "saved": "已儲存 {{path}}",
+    "maxError": "最大差異：{{value}}",
+    "continuous": "連續",
+    "discrete": "離散",
+    "needsBlock": "請開啟連續線性 Block"
   }
 }
