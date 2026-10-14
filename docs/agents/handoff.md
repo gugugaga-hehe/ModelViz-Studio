@@ -4,34 +4,16 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 
 ## State (2026-10-14)
 
-- **Done: 20 of 20 tickets (all MVP tickets completed)**, one stacked PR each, **none merged yet**. CI is green on every PR
-  except #25, #26 and #33 (old flaky runs, see "Open follow-ups").
-
-  | Ticket | Branch | PR | Ticket | Branch | PR |
-  |---|---|---|---|---|---|
-  | #2 | `issue-2-walking-skeleton` | #22 (base `main`) | #12 | `issue-12-parameter-sweeps` | #32 |
-  | #3 | `issue-3-virtual-device-live-plot` | #23 | #13 | `issue-13-python-environment` | #33 |
-  | #4 | `issue-4-timestamps-batching-health` | #24 | #14 | `issue-14-python-blocks` | #34 |
-  | #5 | `issue-5-transports-dialect-hash` | #25 | #15 | `issue-15-measured-frequency-response` | #35 |
-  | #6 | `issue-6-throughput-plot-interaction` | #26 | #16 | `issue-16-drive-systems-with-signals` | #36 |
-  | #7 | `issue-7-recording-replay` | #27 | #17 | `issue-17-device-parameters` | #37 |
-  | #8 | `issue-8-csv-import` | #28 | #18 | `issue-18-parameter-mapping-push` | #38 |
-  | #9 | `issue-9-blocks-systems-time-analyses` | #29 | #21 | `issue-21-panels-dockable-layout` | #39 |
-  | #10 | `issue-10-discretization` | #30 | #19 | `issue-19-fft-psd` | #40 |
-  | #11 | `issue-11-frequency-polezero-metrics` | #31 | #20 | `issue-20-attitude-3d-panel` | #41 |
-
-  Each PR targets the previous ticket's branch (#21 was done before #19, and #20 on top of #19). Merge in order from #22
-  with **merge commits** (squash breaks the stack); GitHub retargets the next PR to `main` when the
-  merged branch is deleted, and `Closes #n` only closes issues once a PR lands on `main`.
-- **Latest branch:** `issue-20-attitude-3d-panel` contains everything. Last verification there:
-  `pnpm typecheck` clean, `pnpm test` 134 passed, CI/local e2e 17 passed.
-- **Remaining:** None (all 20 MVP tickets implemented). Ready for review and merging.
+- **MVP complete and merged.** All 20 tickets (#2–#21) landed on `main` via PRs #22–#41 (merge
+  commits, in stack order); every ticket issue is closed and CI on `main` is green.
+- The stacked-branch workflow is over: ticket branches are deleted, new work branches from `main`
+  and opens PRs against `main`.
+- Last verification before merge (on the final ticket branch): `pnpm typecheck` clean, `pnpm test`
+  134 passed, e2e 17 passed.
 - Merging PRs from the agent is blocked by the permission classifier; the user merges.
 
 ### Open follow-ups (not tickets yet)
 
-- PRs #25, #26, #33 still show red CI from before the flaky-test fixes on `issue-16-…`
-  (serial pty replug race, slow measured loop-margin test). Re-run failed jobs, or merge the stack.
 - One CI run (#33) once timed out waiting for serial state `lost`; not reproduced. `waitForSource`
   now prints the states it saw, so a recurrence will say where it stuck.
 - Measured Frequency Response is slow (~15 s for the example loop with the loop broken): feedback
@@ -40,7 +22,7 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 
 ## Setting up a new environment
 
-1. `git fetch && git checkout issue-19-fft-psd` (or the next ticket's branch), then `pnpm install`.
+1. `git fetch && git checkout main`, then `pnpm install`.
 2. `pnpm exec playwright install chromium` for `pnpm test:e2e` (CI installs it itself).
 3. `socat` for the serial pty test (otherwise silently skipped locally): `sudo apt install socat`,
    or without sudo `apt-get download socat && dpkg-deb -x socat_*.deb ~/opt/socat` and put
@@ -51,13 +33,13 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 6. The `mavlink-device-protocol` skill (root folder, linked from `.claude/skills/`) holds the
    MAVLink2 dialect / firmware / host standard and `scripts/dialect_hash.py`.
 
-## Workflow used per ticket
+## Workflow per ticket
 
-1. `git checkout -b issue-<n>-<slug>` from the previous ticket branch.
+1. `git checkout -b issue-<n>-<slug>` from `main`.
 2. Protocol schemas in `packages/protocol` first, then server, then web.
 3. Seam A tests (`apps/server/test`) and Seam B (`e2e/`), visual check in the browser pane.
 4. Run `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` and **check exit codes before committing**.
-5. Commit with `Closes #<n>`, push, `gh pr create --base <previous branch>`.
+5. Commit with `Closes #<n>`, push, `gh pr create --base main`.
 
 ## Decisions made during implementation
 
