@@ -1,0 +1,23 @@
+{
+  "app": { "title": "ModelViz Studio" },
+  "connection": {
+    "connecting": "正在連線到伺服器…",
+    "connected": "已連線",
+    "disconnected": "無法連線到伺服器，重試中",
+    "incompatible": "伺服器版本不相容：{{message}}",
+    "closed": "已關閉"
+  },
+  "language": { "label": "語言" },
+  "project": {
+    "heading": "Project",
+    "none": "尚未開啟 Project",
+    "current": "目前的 Project",
+    "path": "資料夾（絕對路徑）",
+    "name": "名稱",
+    "create": "建立 Project",
+    "open": "開啟 Project",
+    "mode.create": "新建",
+    "mode.open": "開啟",
+    "error": "無法完成：{{message}}"
+  }
+}

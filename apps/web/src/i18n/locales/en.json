@@ -1,0 +1,23 @@
+{
+  "app": { "title": "ModelViz Studio" },
+  "connection": {
+    "connecting": "Connecting to server…",
+    "connected": "Connected",
+    "disconnected": "Server unreachable — retrying",
+    "incompatible": "Incompatible server: {{message}}",
+    "closed": "Closed"
+  },
+  "language": { "label": "Language" },
+  "project": {
+    "heading": "Project",
+    "none": "No Project open",
+    "current": "Current Project",
+    "path": "Folder (absolute path)",
+    "name": "Name",
+    "create": "Create Project",
+    "open": "Open Project",
+    "mode.create": "New",
+    "mode.open": "Open",
+    "error": "Could not complete: {{message}}"
+  }
+}
