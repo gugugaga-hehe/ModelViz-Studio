@@ -23,8 +23,16 @@ describe("Virtual Device → live Signals (MAVLink2)", () => {
         "bench/BENCH_STATE.gyro_y",
         "bench/BENCH_STATE.gyro_z",
         "bench/BENCH_STATE.mode",
+        "bench/BENCH_ATTITUDE.roll",
+        "bench/BENCH_ATTITUDE.pitch",
+        "bench/BENCH_ATTITUDE.yaw",
+        "bench/BENCH_ATTITUDE.q[0]",
+        "bench/BENCH_ATTITUDE.q[1]",
+        "bench/BENCH_ATTITUDE.q[2]",
+        "bench/BENCH_ATTITUDE.q[3]",
       ]),
     );
+    expect(signals.find((s) => s.id === "bench/BENCH_ATTITUDE.roll")?.units).toBe("rad");
     expect(signals.find((s) => s.id === "bench/BENCH_STATE.gyro_x")?.units).toBe("rad/s");
   });
 

@@ -54,6 +54,12 @@ const VIRTUAL_BENCH_DEVICES = `devices:
             gyro_x: { kind: sine, freqHz: 7, amplitude: 1 }
             gyro_y: { kind: sine, freqHz: 11, amplitude: 0.5 }
             gyro_z: { kind: sine, freqHz: 13, amplitude: 0.25 }
+        BENCH_ATTITUDE:
+          rateHz: 50
+          fields:
+            roll: { kind: sine, freqHz: 0.2, amplitude: 0.5 }
+            pitch: { kind: sine, freqHz: 0.3, amplitude: 0.3 }
+            yaw: { kind: ramp, start: 0, step: 0.02 }
 # Block Parameters a Push may write to Device Parameters. Values only move on a confirmed Push.
 parameterMappings:
   - { system: systems/rate_loop.yaml, block: controller, parameter: Kp, device: bench, deviceParameter: RATE_KP }
@@ -128,6 +134,9 @@ messages:
     batch:
       fields: [gyro_x, gyro_y, gyro_z]
       sampleRateHz: 1000
+  BENCH_ATTITUDE:
+    deviceTimestamp: { field: time_us, unit: us }
+    nominalRateHz: 50
 `,
   "dialects/bench.xml": `<?xml version="1.0"?>
 <!-- Example dialect for a bench Device. Replace with your firmware's dialect. -->
@@ -192,7 +201,16 @@ messages:
       <field type="float[8]" name="gyro_y" units="rad/s">Gyro Y samples.</field>
       <field type="float[8]" name="gyro_z" units="rad/s">Gyro Z samples.</field>
     </message>
+    <message id="42003" name="BENCH_ATTITUDE">
+      <description>Attitude estimation from the AHRS.</description>
+      <field type="uint64_t" name="time_us" units="us">Device time since boot.</field>
+      <field type="float[4]" name="q">Attitude quaternion (w, x, y, z).</field>
+      <field type="float" name="roll" units="rad">Roll angle.</field>
+      <field type="float" name="pitch" units="rad">Pitch angle.</field>
+      <field type="float" name="yaw" units="rad">Yaw angle.</field>
+    </message>
   </messages>
 </mavlink>
 `,
 };
+

@@ -4,7 +4,7 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 
 ## State (2026-10-14)
 
-- **Done: 19 of 20 tickets**, one stacked PR each, **none merged yet**. CI is green on every PR
+- **Done: 20 of 20 tickets (all MVP tickets completed)**, one stacked PR each, **none merged yet**. CI is green on every PR
   except #25, #26 and #33 (old flaky runs, see "Open follow-ups").
 
   | Ticket | Branch | PR | Ticket | Branch | PR |
@@ -18,14 +18,14 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   | #8 | `issue-8-csv-import` | #28 | #18 | `issue-18-parameter-mapping-push` | #38 |
   | #9 | `issue-9-blocks-systems-time-analyses` | #29 | #21 | `issue-21-panels-dockable-layout` | #39 |
   | #10 | `issue-10-discretization` | #30 | #19 | `issue-19-fft-psd` | #40 |
-  | #11 | `issue-11-frequency-polezero-metrics` | #31 | | | |
+  | #11 | `issue-11-frequency-polezero-metrics` | #31 | #20 | `issue-20-attitude-3d-panel` | #41 |
 
-  Each PR targets the previous ticket's branch (#21 was done before #19). Merge in order from #22
+  Each PR targets the previous ticket's branch (#21 was done before #19, and #20 on top of #19). Merge in order from #22
   with **merge commits** (squash breaks the stack); GitHub retargets the next PR to `main` when the
   merged branch is deleted, and `Closes #n` only closes issues once a PR lands on `main`.
-- **Latest branch:** `issue-19-fft-psd` contains everything. Last verification there:
-  `pnpm typecheck` clean, `pnpm test` 134 passed, CI e2e 16 passed.
-- **Remaining:** #20 Attitude 3D Panel (last MVP ticket) — see "Notes for the next tickets".
+- **Latest branch:** `issue-20-attitude-3d-panel` contains everything. Last verification there:
+  `pnpm typecheck` clean, `pnpm test` 134 passed, CI/local e2e 17 passed.
+- **Remaining:** None (all 20 MVP tickets implemented). Ready for review and merging.
 - Merging PRs from the agent is blocked by the permission classifier; the user merges.
 
 ### Open follow-ups (not tickets yet)
@@ -94,16 +94,15 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   amplitude spectrum (sine of amplitude A → peak A) and PSD (integrates to the variance). Numerical
   checks live in Seam A, so DSP stays on the server.
 
-## Notes for the next tickets
+- Attitude 3D Panel (#20): Three.js (pinned `0.186.1`) spherical reference frame with horizon ring,
+  reference axes, and vehicle body model with OrbitControls. Input accepts quaternion (w, x, y, z) or
+  Euler (roll, pitch, yaw) Signal sets picked per Panel and saved in its params. Quaternions are
+  normalised via `Math.hypot`. Renders at display rate from the newest sample
+  (`signalStore.buffer(h).latestValue()`), never per sample. Exposes applied rotation and atomic
+  quaternion on data attributes for fast, deterministic Seam B smoke testing. Dialect Message
+  `BENCH_ATTITUDE` added to `bench.xml`, `bench.yaml`, and virtual bench template.
 
-- #20 Attitude 3D Panel: add a Panel kind in `Workspace.tsx` (see the #21 note above). Spec says a
-  WebGL 3D library (e.g. three.js; pin the version) and a spherical reference frame; input is a
-  quaternion (w, x, y, z) or Euler (roll, pitch, yaw) Signal set picked per Panel and saved in its
-  params. Normalise quaternions before use. The bench template has no attitude Signals yet: add a
-  dialect Message (e.g. `BENCH_ATTITUDE` with `q[4]` or roll/pitch/yaw) plus Virtual Device
-  generators, or test with a CSV Log Replay. Render at display rate from the newest sample
-  (`signalStore.buffer(h).latestValue()`), never per sample. Seam B smoke: known orientations render
-  (expose the applied rotation as data attributes rather than comparing pixels).
+## Notes for future iterations
 
 - The serial test needs `socat`; without it, it is silently skipped locally and only runs in CI.
   Without sudo: `apt-get download socat && dpkg-deb -x socat_*.deb <dir>` and put `<dir>/usr/bin` on `PATH`.

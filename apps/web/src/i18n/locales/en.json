@@ -371,6 +371,24 @@
       "amplitudeDb": "Amplitude [dB {{units}}]",
       "psd": "PSD [{{units}}²/Hz]",
       "psdDb": "PSD [dB {{units}}²/Hz]"
+    },
+    "addAttitude": "Add Attitude 3D",
+    "attitudeTitle": "Attitude 3D {{n}}",
+    "attitude": {
+      "mode": "Mode",
+      "quaternion": "Quaternion",
+      "euler": "Euler",
+      "qw": "w (qw)",
+      "qx": "x (qx)",
+      "qy": "y (qy)",
+      "qz": "z (qz)",
+      "roll": "Roll",
+      "pitch": "Pitch",
+      "yaw": "Yaw",
+      "unit": "Angle unit",
+      "radians": "Radians",
+      "degrees": "Degrees",
+      "pickSignals": "Select quaternion or Euler Signals to view attitude in 3D"
     }
   }
 }
