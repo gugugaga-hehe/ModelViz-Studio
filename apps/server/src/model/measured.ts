@@ -3,6 +3,7 @@ import { ProtocolFailure } from "../errors.ts";
 import { bode } from "./lti.ts";
 import type { PythonHost } from "./python-host.ts";
 import { type LoadedSystem, SystemEngine } from "./system.ts";
+import type { AnalysisControl } from "./time-analysis.ts";
 
 /** Purely continuous Systems are simulated this much faster, so the hold adds no visible phase lag. */
 const OVERSAMPLE = 20;
@@ -11,12 +12,7 @@ const MIN_SETTLE_S = 0.5;
 const MEASURE_CYCLES = 5;
 const CHUNK = 20000;
 
-export interface MeasureControl {
-  cancelled: boolean;
-  progress(done: number, total: number): void;
-  /** Aborted on cancellation, to stop work that cannot poll `cancelled` (e.g. a Python host). */
-  signal?: AbortSignal;
-}
+export type MeasureControl = AnalysisControl;
 
 /** A copy of the System with the Connection into `port` cut: `__loop_in` drives it, `__loop_out` is the old driver. */
 export function breakLoop(sys: LoadedSystem, port: string): LoadedSystem {

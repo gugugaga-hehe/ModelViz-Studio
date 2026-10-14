@@ -1,11 +1,59 @@
-import type { StepMetrics, TimeAnalysisRequest, TimeAnalysisResult } from "@modelviz/protocol";
+import { MAX_TIME_SAMPLES, type StepMetrics, type TimeAnalysisRequest, type TimeAnalysisResult } from "@modelviz/protocol";
 import { ProtocolFailure } from "../errors.ts";
 import { linearFinalValues, stepMetrics } from "./lti.ts";
 import { stimulusFn } from "./stimulus.ts";
 import { PythonHost, type PythonRuntime } from "./python-host.ts";
 import { type LoadedSystem, SystemEngine, SystemError, loadSystem } from "./system.ts";
 
-/** Runs a step, impulse or Stimulus response of a System from rest. */
+/** Samples simulated per engine.run call of a long run. */
+const CHUNK = 1000;
+/** Longest stretch of simulation before yielding to the event loop (ms), so live I/O keeps flowing. */
+const SLICE_MS = 15;
+
+/** Cancellation and progress of a long-running Analysis. */
+export interface AnalysisControl {
+  cancelled: boolean;
+  progress(done: number, total: number): void;
+  /** Aborted on cancellation, to stop work that cannot poll `cancelled` (e.g. a Python host). */
+  signal?: AbortSignal;
+}
+
+/** Fails when a run of `count` samples would exceed MAX_TIME_SAMPLES. */
+export function checkSampleBudget(count: number, fs: number, durationS: number): void {
+  if (count > MAX_TIME_SAMPLES) {
+    throw new ProtocolFailure(
+      "invalid_params",
+      `${durationS} s at ${fs} Hz is ${count} samples; at most ${MAX_TIME_SAMPLES} fit in one run (shorten the duration to ${Math.floor((MAX_TIME_SAMPLES - 1) / fs)} s)`,
+    );
+  }
+}
+
+/**
+ * engine.run in chunks, yielding to the event loop between them, so a long simulation never
+ * blocks Sources, Recordings or other requests. Returns one array per System output.
+ */
+export async function runChunked(
+  engine: SystemEngine,
+  count: number,
+  input: (name: string, k: number, t: number) => number,
+  ctl?: AnalysisControl,
+): Promise<Float64Array[]> {
+  const out = engine.outputs.map(() => new Float64Array(count));
+  let sliceStart = performance.now();
+  for (let start = 0; start < count; start += CHUNK) {
+    if (ctl?.cancelled) throw new ProtocolFailure("cancelled", "Analysis cancelled");
+    const part = await engine.run(Math.min(CHUNK, count - start), input);
+    part.forEach((p, i) => out[i]!.set(p, start));
+    if (performance.now() - sliceStart > SLICE_MS && start + CHUNK < count) {
+      ctl?.progress(start + CHUNK, count);
+      await new Promise<void>((r) => setImmediate(r));
+      sliceStart = performance.now();
+    }
+  }
+  ctl?.progress(count, count);
+  return out;
+}
+
 /** A recorded Signal: times in seconds from its first sample. */
 export interface SampledSignal {
   t: Float64Array;
@@ -28,12 +76,12 @@ export async function runTimeAnalysis(
   req: TimeAnalysisRequest,
   python: PythonRuntime | null = null,
   signal: SampledSignal | null = null,
-  abort?: AbortSignal,
+  ctl?: AnalysisControl,
 ): Promise<TimeAnalysisResult> {
   const sys = await loadSystem(projectPath, req.system);
-  const host = withPython(sys, python, abort);
+  const host = withPython(sys, python, ctl?.signal);
   try {
-    return await timeAnalysis(sys, req, host ?? undefined, signal);
+    return await timeAnalysis(sys, req, host ?? undefined, signal, ctl);
   } finally {
     host?.close();
   }
@@ -49,7 +97,13 @@ export function withPython(sys: LoadedSystem, python: PythonRuntime | null, abor
   return host;
 }
 
-async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: PythonHost, signal: SampledSignal | null = null): Promise<TimeAnalysisResult> {
+async function timeAnalysis(
+  sys: LoadedSystem,
+  req: TimeAnalysisRequest,
+  host?: PythonHost,
+  signal: SampledSignal | null = null,
+  ctl?: AnalysisControl,
+): Promise<TimeAnalysisResult> {
   let engine: SystemEngine;
   try {
     engine = new SystemEngine(sys, req.parameters, host ? { python: host } : {});
@@ -80,15 +134,21 @@ async function timeAnalysis(sys: LoadedSystem, req: TimeAnalysisRequest, host?: 
     drive = stimulusFn(stim, durationS, fs);
   }
   const count = Math.round(durationS * fs) + 1;
+  checkSampleBudget(count, fs, durationS);
   const u = new Float64Array(count);
   let outputs: Float64Array[];
   try {
-    outputs = await engine.run(count, (name, k, t) => {
-      if (name !== input) return 0;
-      const v = drive(k, t);
-      u[k] = v;
-      return v;
-    });
+    outputs = await runChunked(
+      engine,
+      count,
+      (name, k, t) => {
+        if (name !== input) return 0;
+        const v = drive(k, t);
+        u[k] = v;
+        return v;
+      },
+      ctl,
+    );
   } catch (e) {
     if (e instanceof ProtocolFailure) throw e;
     throw new ProtocolFailure("invalid_system", `Simulation failed: ${(e as Error).message}`);
