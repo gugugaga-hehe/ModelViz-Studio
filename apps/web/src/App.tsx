@@ -5,6 +5,7 @@ import { ConnectionBadge } from "./components/ConnectionBadge";
 import { DevicesPanel } from "./components/DevicesPanel";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { ProjectPanel } from "./components/ProjectPanel";
+import { RecordingsPanel } from "./components/RecordingsPanel";
 import { PlotStack } from "./components/PlotStack";
 import { useSession } from "./state/session";
 
@@ -43,6 +44,7 @@ export function App() {
         <main className="flex min-h-0 flex-1 gap-3 p-3">
           <aside className="w-64 shrink-0 overflow-auto rounded-lg border border-border bg-surface p-3">
             <DevicesPanel />
+            <RecordingsPanel />
           </aside>
           <PlotStack />
         </main>

@@ -40,7 +40,7 @@ interface MessageMonitor {
  * samples, applies Device Timestamps (anchored to the host clock) and watches link health.
  */
 export class DeviceLink {
-  private readonly decoder: FrameDecoder;
+  private decoder: FrameDecoder;
   private readonly specs: Map<string, MessageSpec>;
   private readonly monitors = new Map<string, MessageMonitor>();
   /** host ms − device ms, fixed at the first Device Timestamp (re-anchored on reset). */
@@ -52,7 +52,7 @@ export class DeviceLink {
 
   constructor(
     readonly device: string,
-    format: FrameFormat,
+    private readonly format: FrameFormat,
     private readonly targets: Map<string, SignalTarget[]>,
     private readonly publish: Publish,
     private readonly verify?: DialectVerification,
@@ -67,8 +67,20 @@ export class DeviceLink {
     if (this.verify) this.verification = "pending";
   }
 
-  ingest(bytes: Uint8Array): void {
-    const hostTime = Date.now();
+  /**
+   * Starts decoding afresh (e.g. after a Log Replay seek): partial frames, clock anchor and
+   * timing history are discarded; counters and the dialect check result are kept.
+   */
+  reset(): void {
+    const stats = this.decoder.stats;
+    this.decoder = this.format.createDecoder();
+    Object.assign(this.decoder.stats, stats);
+    this.clockOffset = null;
+    this.lastDeviceMs = -Infinity;
+    for (const m of this.monitors.values()) m.lastDeviceMs = null;
+  }
+
+  ingest(bytes: Uint8Array, hostTime = Date.now()): void {
     for (const msg of this.decoder.push(bytes)) {
       if (this.verification === "failed") return;
       if (this.verification === "pending") {

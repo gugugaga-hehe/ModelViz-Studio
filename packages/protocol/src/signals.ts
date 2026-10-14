@@ -61,7 +61,7 @@ export const LinkHealth = z.object({
 });
 export type LinkHealth = z.infer<typeof LinkHealth>;
 
-export const SourceKind = z.enum(["virtual", "serial", "tcp", "udp"]);
+export const SourceKind = z.enum(["virtual", "serial", "tcp", "udp", "replay"]);
 export type SourceKind = z.infer<typeof SourceKind>;
 
 /**
@@ -75,12 +75,23 @@ export type SourceKind = z.infer<typeof SourceKind>;
 export const SourceStatus = z.enum(["connecting", "verifying", "running", "lost", "rejected", "stopped"]);
 export type SourceStatus = z.infer<typeof SourceStatus>;
 
+export const ReplayState = z.object({
+  recording: z.string(),
+  playing: z.boolean(),
+  /** Position within the Recording (ms from its start). */
+  positionMs: z.number(),
+  durationMs: z.number(),
+  speed: z.number(),
+});
+export type ReplayState = z.infer<typeof ReplayState>;
+
 export const SourceState = z.object({
   device: z.string(),
   kind: SourceKind,
   state: SourceStatus,
   transport: TransportConfig.optional(),
   error: z.string().optional(),
+  replay: ReplayState.optional(),
 });
 export type SourceState = z.infer<typeof SourceState>;
 
@@ -151,3 +162,16 @@ export const SerialPortInfo = z.object({
   productId: z.string().optional(),
 });
 export type SerialPortInfo = z.infer<typeof SerialPortInfo>;
+
+export const RecordingInfo = z.object({
+  /** File name inside the Project's recordings folder, without extension. */
+  id: z.string(),
+  device: z.string(),
+  /** Host time of the first chunk (ms since epoch). */
+  startedAt: z.number(),
+  durationMs: z.number(),
+  bytes: z.number(),
+  /** Still being written. */
+  active: z.boolean(),
+});
+export type RecordingInfo = z.infer<typeof RecordingInfo>;

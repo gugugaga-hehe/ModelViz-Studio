@@ -79,5 +79,19 @@
     "localPort": "本機 UDP 連接埠",
     "connect": "連線",
     "cancel": "取消"
+  },
+  "recordings": {
+    "heading": "Recording",
+    "none": "尚無 Recording",
+    "record": "錄製",
+    "stop": "停止錄製",
+    "replay": "回放 {{id}}"
+  },
+  "replay": {
+    "of": "Log Replay：{{recording}}",
+    "play": "播放",
+    "pause": "暫停回放",
+    "position": "回放位置",
+    "speed": "回放速度"
   }
 }

@@ -6,6 +6,7 @@ import {
   type MethodName,
   Methods,
   type ProjectInfo,
+  type RecordingInfo,
   type ServerMessage,
   type SignalInfo,
   type SourceState,
@@ -17,6 +18,7 @@ import type { DeviceLink, SignalTarget } from "./device-link.ts";
 import { ProtocolFailure } from "./errors.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
 import { type OpenedProject, createProject, openProject } from "./project-store.ts";
+import { Recorder, RecordingReader, listRecordings } from "./recording.ts";
 import { SignalBus } from "./signal-bus.ts";
 import { listSerialPorts } from "./transports.ts";
 
@@ -125,6 +127,60 @@ export class Workbench {
       return this.startSource(d, (opts) => ActiveSource.live(opts, transport));
     },
     "transports.listSerial": async () => listSerialPorts(),
+    "source.startReplay": async (p) => {
+      const { device, recording, speed } = Methods["source.startReplay"].params.parse(p);
+      const d = this.idleDevice(device);
+      const reader = await RecordingReader.open(this.requireProject().path, recording);
+      if (reader.meta.device !== device) {
+        throw new ProtocolFailure("invalid_params", `Recording ${recording} belongs to Device ${reader.meta.device}`);
+      }
+      return this.startSource(d, (opts) => ActiveSource.replay(opts, reader, speed));
+    },
+    "replay.control": async (p) => {
+      const { device, action, positionMs, speed } = Methods["replay.control"].params.parse(p);
+      const d = this.device(device);
+      if (!d.source?.active || d.source.kind !== "replay") {
+        throw new ProtocolFailure("conflict", `Device ${device} is not playing a Log Replay`);
+      }
+      d.source.control(action, positionMs, speed);
+      return d.source.state();
+    },
+    "recording.start": async (p) => {
+      const { device, name } = Methods["recording.start"].params.parse(p);
+      const d = this.device(device);
+      const src = d.source;
+      if (!src?.active) throw new ProtocolFailure("conflict", `Device ${device} has no running Source to record`);
+      if (src.kind === "replay") throw new ProtocolFailure("conflict", "A Log Replay cannot be recorded again");
+      if (src.recorder) throw new ProtocolFailure("conflict", `Device ${device} is already recording`);
+      if (d.format?.dialectCheck && !src.verifiedHash) {
+        throw new ProtocolFailure("conflict", `Device ${device} has not verified its dialect yet`);
+      }
+      const id = name ?? `${device}-${new Date().toISOString().replace(/[:]/g, "-").replace(/\..+$/, "")}`;
+      src.recorder = await Recorder.create(this.requireProject().path, id, {
+        device,
+        frameFormat: d.config.frameFormat,
+        createdAt: Date.now(),
+        ...(src.verifiedHash ? { dialectHash: src.verifiedHash } : {}),
+      });
+      const info = src.recorder.info();
+      this.broadcast("recording.changed", info);
+      return info;
+    },
+    "recording.stop": async (p) => {
+      const { device } = Methods["recording.stop"].params.parse(p);
+      const d = this.device(device);
+      const rec = d.source?.recorder;
+      if (!rec) throw new ProtocolFailure("not_found", `Device ${device} is not recording`);
+      return this.finishRecording(d);
+    },
+    "recordings.list": async () => {
+      const project = this.requireProject();
+      const active = new Map(
+        [...this.devices.values()].flatMap((d) => (d.source?.recorder ? [[d.source.recorder.id, d.source.recorder.info()]] : [])),
+      );
+      const stored = (await listRecordings(project.path)).filter((r) => !active.has(r.id));
+      return [...stored, ...active.values()];
+    },
     "source.stop": async (p) => {
       const { device } = Methods["source.stop"].params.parse(p);
       const d = this.device(device);
@@ -153,7 +209,11 @@ export class Workbench {
         format: d.format,
         targets: d.signalMap,
         publish: (h, t, v, host) => this.bus.publish(h, t, v, host),
-        onState: (state) => this.broadcast("source.changed", state),
+        onState: (state) => {
+          if ((state.state === "stopped" || state.state === "rejected") && d.source?.recorder) void this.finishRecording(d);
+          this.broadcast("source.changed", state);
+        },
+        onReset: () => this.broadcast("signals.reset", { device: d.config.id }),
       });
     } catch (e) {
       throw new ProtocolFailure("invalid_project", (e as Error).message);
@@ -176,7 +236,19 @@ export class Workbench {
   }
 
   private reportHealth(): void {
-    for (const d of this.devices.values()) if (d.source?.active && d.link) this.broadcast("link.health", d.link.health());
+    for (const d of this.devices.values()) {
+      if (d.source?.active && d.link) this.broadcast("link.health", d.link.health());
+      if (d.source?.recorder) this.broadcast("recording.changed", d.source.recorder.info());
+    }
+  }
+
+  private async finishRecording(d: DeviceRuntime): Promise<RecordingInfo> {
+    const rec = d.source!.recorder!;
+    d.source!.recorder = null;
+    await rec.close();
+    const info = rec.info();
+    this.broadcast("recording.changed", info);
+    return info;
   }
 
   private async setProject(opened: OpenedProject): Promise<ProjectInfo> {

@@ -1,5 +1,5 @@
 import { type ConnectionState, ModelVizClient } from "@modelviz/client";
-import { type DeviceInfo, type LinkHealth, PROTOCOL_PATH, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
+import { type DeviceInfo, type LinkHealth, PROTOCOL_PATH, type RecordingInfo, type ProjectInfo, type SignalInfo, type SourceState } from "@modelviz/protocol";
 import { create } from "zustand";
 import { SignalStore } from "./signal-store";
 
@@ -20,6 +20,7 @@ interface SessionState {
   signals: SignalInfo[];
   sources: Record<string, SourceState>;
   health: Record<string, LinkHealth>;
+  recordings: RecordingInfo[];
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -30,18 +31,20 @@ export const useSession = create<SessionState>(() => ({
   signals: [],
   sources: {},
   health: {},
+  recordings: [],
 }));
 
 async function loadProjectState(project: ProjectInfo | null): Promise<void> {
   signalStore.clear();
   if (!project) {
-    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {} });
+    useSession.setState({ project, devices: [], signals: [], sources: {}, health: {}, recordings: [] });
     return;
   }
-  const [devices, signals, sources] = await Promise.all([
+  const [devices, signals, sources, recordings] = await Promise.all([
     client.request("devices.list", {}),
     client.request("signals.list", {}),
     client.request("sources.list", {}),
+    client.request("recordings.list", {}),
   ]);
   useSession.setState({
     project,
@@ -49,6 +52,7 @@ async function loadProjectState(project: ProjectInfo | null): Promise<void> {
     signals,
     sources: Object.fromEntries(sources.map((s) => [s.device, s])),
     health: {},
+    recordings,
   });
 }
 
@@ -61,4 +65,13 @@ client.onState((connection) => {
 client.on("project.changed", (project) => void loadProjectState(project).catch(() => {}));
 client.on("source.changed", (s) => useSession.setState((st) => ({ sources: { ...st.sources, [s.device]: s } })));
 client.on("link.health", (h) => useSession.setState((st) => ({ health: { ...st.health, [h.device]: h } })));
+client.on("recording.changed", (r) =>
+  useSession.setState((st) => {
+    const others = st.recordings.filter((x) => x.id !== r.id);
+    return { recordings: [...others, r].sort((a, b) => a.startedAt - b.startedAt) };
+  }),
+);
+client.on("signals.reset", ({ device }) => {
+  for (const s of useSession.getState().signals) if (s.device === device) signalStore.buffer(s.handle).clear();
+});
 client.connect();

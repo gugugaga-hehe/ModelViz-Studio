@@ -79,5 +79,19 @@
     "localPort": "Local UDP port",
     "connect": "Connect",
     "cancel": "Cancel"
+  },
+  "recordings": {
+    "heading": "Recordings",
+    "none": "No Recordings yet",
+    "record": "Record",
+    "stop": "Stop recording",
+    "replay": "Replay {{id}}"
+  },
+  "replay": {
+    "of": "Log Replay of {{recording}}",
+    "play": "Play",
+    "pause": "Pause replay",
+    "position": "Replay position",
+    "speed": "Replay speed"
   }
 }

@@ -2,6 +2,8 @@ import type { SourceKind, SourceState, SourceStatus, TransportConfig } from "@mo
 import { DeviceLink, type Publish, type SignalTarget } from "./device-link.ts";
 import type { FrameFormat } from "./frame-format.ts";
 import { type Transport, createTransport } from "./transports.ts";
+import type { Recorder, RecordingReader } from "./recording.ts";
+import { ReplayPlayer } from "./replay.ts";
 import { VirtualDevice } from "./virtual-device.ts";
 import type { VirtualDeviceConfig } from "@modelviz/protocol";
 
@@ -14,6 +16,8 @@ export interface SourceOptions {
   targets: Map<string, SignalTarget[]>;
   publish: Publish;
   onState(state: SourceState): void;
+  /** Downstream Signals restart (Log Replay seek). */
+  onReset?(): void;
 }
 
 /**
@@ -26,11 +30,18 @@ export class ActiveSource {
   private error: string | undefined;
   private checkTimer: ReturnType<typeof setTimeout> | null = null;
   private stopTarget: (() => void) | null = null;
+  private player: ReplayPlayer | null = null;
+  /** Raw-byte tap for an in-progress Recording. */
+  recorder: Recorder | null = null;
+  /** Dialect hash the Device reported in the last successful check. */
+  verifiedHash: string | null = null;
 
   private constructor(
     readonly kind: SourceKind,
     private readonly opts: SourceOptions,
     readonly transport?: TransportConfig,
+    /** Whether the byte stream itself must prove its dialect (not for Log Replays, see replay()). */
+    private readonly checkDialect = true,
   ) {
     const { format } = opts;
     this.link = new DeviceLink(
@@ -38,12 +49,13 @@ export class ActiveSource {
       format,
       opts.targets,
       opts.publish,
-      format.dialectCheck
+      format.dialectCheck && checkDialect
         ? {
             check: format.dialectCheck,
             expectedHash: format.dialectHash,
             onResult: (ok, received) => {
               this.clearCheckTimer();
+              if (ok) this.verifiedHash = received;
               if (ok) this.set("running");
               else this.reject(`Dialect hash mismatch: Device reports ${received}, Frame Format expects ${format.dialectHash}`);
             },
@@ -54,7 +66,7 @@ export class ActiveSource {
 
   static virtual(opts: SourceOptions, config: VirtualDeviceConfig): ActiveSource {
     const src = new ActiveSource("virtual", opts);
-    const vd = new VirtualDevice(opts.format, config, (bytes) => src.link.ingest(bytes));
+    const vd = new VirtualDevice(opts.format, config, (bytes) => src.receive(bytes));
     src.stopTarget = () => vd.stop();
     src.connected();
     vd.start();
@@ -64,7 +76,7 @@ export class ActiveSource {
   static live(opts: SourceOptions, config: TransportConfig): ActiveSource {
     const src = new ActiveSource(config.kind, opts, config);
     const transport: Transport = createTransport(config, {
-      onData: (bytes) => src.link.ingest(bytes),
+      onData: (bytes) => src.receive(bytes),
       onStatus: (status, error) => {
         if (status === "connected") src.connected();
         else {
@@ -78,6 +90,67 @@ export class ActiveSource {
     return src;
   }
 
+  /**
+   * Plays a Recording back; bytes are decoded with the current Frame Format (ADR-0007).
+   * The dialect was verified when the Recording was made (its hash is in the metadata), and a
+   * Recording may start between two hash reports, so the check compares metadata instead.
+   */
+  static replay(opts: SourceOptions, reader: RecordingReader, speed: number): ActiveSource {
+    const recorded = reader.meta.dialectHash;
+    if (opts.format.dialectCheck && recorded && recorded !== opts.format.dialectHash) {
+      throw new Error(
+        `Dialect hash mismatch: Recording ${reader.id} was made with ${recorded}, Frame Format expects ${opts.format.dialectHash}`,
+      );
+    }
+    const src = new ActiveSource("replay", opts, undefined, false);
+    let lastBroadcast = 0;
+    const player = new ReplayPlayer(
+      reader,
+      (bytes, hostTime) => {
+        src.link.ingest(bytes, hostTime);
+        // progress updates while playing, at a modest rate
+        const now = performance.now();
+        if (now - lastBroadcast > 250) {
+          lastBroadcast = now;
+          opts.onState(src.state());
+        }
+      },
+      () => opts.onState(src.state()),
+      speed,
+    );
+    src.player = player;
+    src.stopTarget = () => player.stop();
+    src.connected();
+    player.play();
+    return src;
+  }
+
+  /** Controls a Log Replay; throws if this Source is not one. */
+  control(action: "play" | "pause" | "seek" | "speed", positionMs?: number, speed?: number): void {
+    const p = this.player;
+    if (!p) throw new Error("Not a Log Replay");
+    switch (action) {
+      case "play":
+        return p.play();
+      case "pause":
+        return p.pause();
+      case "speed":
+        if (speed) p.setSpeed(speed);
+        return;
+      case "seek":
+        p.seek(positionMs ?? 0);
+        this.link.reset();
+        this.opts.onReset?.();
+        return;
+    }
+  }
+
+  private receive(bytes: Uint8Array): void {
+    const hostTime = Date.now();
+    this.recorder?.write(bytes, hostTime);
+    this.link.ingest(bytes, hostTime);
+  }
+
   get active(): boolean {
     return this.status !== "stopped" && this.status !== "rejected";
   }
@@ -89,6 +162,7 @@ export class ActiveSource {
       state: this.status,
       ...(this.transport ? { transport: this.transport } : {}),
       ...(this.error ? { error: this.error } : {}),
+      ...(this.player ? { replay: this.player.state() } : {}),
     };
   }
 
@@ -100,7 +174,7 @@ export class ActiveSource {
   }
 
   private connected(): void {
-    if (!this.opts.format.dialectCheck) {
+    if (!this.opts.format.dialectCheck || !this.checkDialect) {
       this.set("running");
       return;
     }
