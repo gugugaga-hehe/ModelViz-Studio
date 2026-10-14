@@ -7,7 +7,8 @@ import {
   type SerializedDockview,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
-import { AudioLines, ChartLine, ChartScatter, Rotate3d, Table } from "lucide-react";
+import { LAYOUT_VERSION } from "@modelviz/protocol";
+import { AudioLines, ChartLine, ChartScatter, RotateCcw, Rotate3d, Table, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
@@ -35,6 +36,21 @@ const SPECTRUM_DEFAULTS: SpectrumSettings = { signal: "", window: "hann", length
 const SAVE_DELAY_MS = 400;
 
 const theme: DockviewTheme = { name: "modelviz", className: "dockview-theme-modelviz" };
+
+/**
+ * Upgrades a saved `dock` from layout version `v` to `v + 1`. Add an entry here whenever a change
+ * to Panels or dockview alters the saved shape, and bump LAYOUT_VERSION.
+ */
+const MIGRATIONS: Record<number, (dock: Record<string, unknown>) => Record<string, unknown>> = {};
+
+function migrate(version: number, dock: Record<string, unknown>): Record<string, unknown> {
+  for (let v = version; v < LAYOUT_VERSION; v++) {
+    const step = MIGRATIONS[v];
+    if (!step) throw new Error(`no migration from layout version ${v}`);
+    dock = step(dock);
+  }
+  return dock;
+}
 
 /** Panels report selection changes here so the layout is saved (dockview does not report parameter edits). */
 const paramsChanged = new EventTarget();
@@ -117,6 +133,10 @@ export function Workspace() {
   const project = useSession((s) => s.project);
   const [api, setApi] = useState<DockviewApi | null>(null);
   const restoring = useRef(true);
+  /** Set while the Project's layout file could not be restored: nothing is saved over it. */
+  const [problem, setProblem] = useState<string | null>(null);
+  const blocked = useRef(false);
+  const [backup, setBackup] = useState<string | null>(null);
   const [saves, setSaves] = useState(0);
 
   // restore the Project's layout (or start with one time plot)
@@ -124,17 +144,26 @@ export function Workspace() {
     if (!api || !project) return;
     let cancelled = false;
     restoring.current = true;
+    setBackup(null);
     void (async () => {
-      const saved = await client.request("layout.get", {}).catch(() => null);
+      let failure: string | null = null;
+      const saved = await client.request("layout.get", {}).catch((e: Error) => {
+        failure = e.message;
+        return null;
+      });
       if (cancelled) return;
       api.clear();
-      if (saved) {
+      if (saved?.status === "unreadable") failure = saved.reason;
+      else if (saved?.status === "ok") {
         try {
-          api.fromJSON(saved.dock as unknown as SerializedDockview);
-        } catch {
+          api.fromJSON(migrate(saved.layout.version, saved.layout.dock) as unknown as SerializedDockview);
+        } catch (e) {
           api.clear();
+          failure = (e as Error).message;
         }
       }
+      blocked.current = failure !== null;
+      setProblem(failure);
       if (api.totalPanels === 0) addPanel(api, "time");
       retitle(api);
       // let dockview settle before treating changes as the user's
@@ -156,13 +185,15 @@ export function Workspace() {
       timer = undefined;
       // layout.set writes to the server's open Project: never save into a Project switched to since
       if (useSession.getState().project?.path !== path) return;
+      // keep an unreadable layout file until the user chooses to reset it
+      if (blocked.current) return;
       let dock: Record<string, unknown>;
       try {
         dock = api.toJSON() as unknown as Record<string, unknown>;
       } catch {
         return; // dockview already torn down
       }
-      client.request("layout.set", { layout: { version: 1, dock } }).then(() => setSaves((n) => n + 1), () => {});
+      client.request("layout.set", { layout: { version: LAYOUT_VERSION, dock } }).then(() => setSaves((n) => n + 1), () => {});
     };
     const schedule = () => {
       if (restoring.current) return;
@@ -194,9 +225,37 @@ export function Workspace() {
     return () => i18n.off("languageChanged", update);
   }, [api]);
 
+  /** Backs up the unreadable layout file, then saves the Panels shown now in its place. */
+  const resetLayout = async () => {
+    if (!api) return;
+    const { backup } = await client.request("layout.reset", {});
+    blocked.current = false;
+    setProblem(null);
+    setBackup(backup);
+    await client.request("layout.set", { layout: { version: LAYOUT_VERSION, dock: api.toJSON() as unknown as Record<string, unknown> } });
+    setSaves((n) => n + 1);
+  };
+
   const btn = "inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted hover:border-accent hover:text-fg";
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2" data-testid="workspace" data-layout-saves={saves}>
+      {problem !== null && (
+        <div role="alert" data-testid="layout-problem" className="flex flex-wrap items-center gap-2 rounded border border-warn px-3 py-2 text-xs">
+          <TriangleAlert size={14} className="shrink-0 text-warn" />
+          <span className="min-w-0 flex-1">
+            {t("layout.unreadable")} <span className="text-muted">{problem}</span>
+          </span>
+          <button className={btn} onClick={() => void resetLayout().catch((e: Error) => setProblem(e.message))}>
+            <RotateCcw size={14} />
+            {t("layout.reset")}
+          </button>
+        </div>
+      )}
+      {backup !== null && (
+        <p data-testid="layout-backup" className="text-xs text-muted">
+          {t("layout.backedUp", { file: backup })}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <button className={btn} onClick={() => api && addPanel(api, "time")}>
           <ChartLine size={14} />

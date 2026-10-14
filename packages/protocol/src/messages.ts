@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PanelLayout, ProjectInfo, ProjectTemplate, PythonConfig, TransportConfig } from "./project.ts";
+import { LAYOUT_VERSION, LayoutRead, PanelLayout, ProjectInfo, ProjectTemplate, PythonConfig, TransportConfig } from "./project.ts";
 import {
   BlockInfo,
   DiscretizationComparison,
@@ -75,15 +75,24 @@ export const Methods = {
     params: z.object({}),
     result: ProjectInfo.nullable(),
   },
-  /** The open Project's Panel layout; null when it has none yet. */
+  /** The open Project's Panel layout. */
   "layout.get": {
     params: z.object({}),
-    result: PanelLayout.nullable(),
+    result: LayoutRead,
   },
-  /** Save the Panel layout into the Project (layout.yaml). */
+  /**
+   * Save the Panel layout into the Project (layout.yaml), always at LAYOUT_VERSION. Fails with
+   * "conflict" while the existing file is unreadable: reset it first.
+   */
   "layout.set": {
-    params: z.object({ layout: PanelLayout }),
+    params: z.object({ layout: PanelLayout.extend({ version: z.literal(LAYOUT_VERSION) }) }),
     result: z.object({}),
+  },
+  /** Moves the Project's layout file aside to a backup (the next free layout.yaml.bak name). */
+  "layout.reset": {
+    params: z.object({}),
+    /** File name of the backup in the Project folder; null when there was no layout file. */
+    result: z.object({ backup: z.string().nullable() }),
   },
   "devices.list": {
     params: z.object({}),
