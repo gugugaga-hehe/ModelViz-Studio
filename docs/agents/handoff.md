@@ -11,7 +11,8 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   #20 Attitude 3D Panel, #21 XY/table Panels + dockable layout. Start #17 from branch
   `issue-16-drive-systems-with-signals`.
 - Last full verification on `issue-16-…`: `pnpm typecheck` clean, `pnpm test` 110 passed,
-  `pnpm test:e2e` 12 passed. Only #22 has run GitHub CI (passed); stacked PRs don't trigger CI.
+  `pnpm test:e2e` 12 passed. CI runs on every stacked PR (`pull_request` trigger); earlier red
+  runs on #25, #26, #33 and #36 came from the two flaky tests fixed on `issue-16-…` (see below).
 - Merging PRs from the agent is blocked by the permission classifier; the user merges.
 
 ## Workflow used per ticket
@@ -42,6 +43,10 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   the browser on those buffers or as a server Analysis.
 - #21: layouts must persist in the Project (e.g. `layout.yaml`); panels currently are a fixed
   sidebar + `PlotStack` (Telemetry) and the Model Lab tab.
+- The serial test needs `socat`; without it, it is silently skipped locally and only runs in CI.
+  Without sudo: `apt-get download socat && dpkg-deb -x socat_*.deb <dir>` and put `<dir>/usr/bin` on `PATH`.
+- socat removes its `link=` symlinks on exit: wait for the old process to exit before creating a new
+  pair at the same paths, or it deletes the new links.
 - Test pitfalls seen: Playwright name matching is substring by default (use `exact: true`);
   subscribe to Signals only after earlier runs finish (bus flush is 33 ms); create event waiters
   before triggering the action.
