@@ -22,17 +22,19 @@ export function TablePanel({ n, selected, onChange }: { n: number; selected: str
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
   const title = t("panels.tableTitle", { n });
   return (
-    <section aria-label={title} data-testid={`table-panel-${n - 1}`} className="@container flex h-full min-h-0 flex-col gap-3 bg-surface p-3 @[36rem]:flex-row">
-      <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-        <SignalPicker selected={selected} onToggle={toggle} />
-      </div>
-      <div className="min-w-0 flex-1 overflow-auto">
-        {signals.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted">{t("panels.pickTable")}</div>
-        ) : (
-          <LatestValues signals={signals} />
-        )}
+    <section aria-label={title} data-testid={`table-panel-${n - 1}`} className="@container h-full min-h-0 bg-surface p-3">
+      <div className="flex h-full min-h-0 flex-col gap-3 @[36rem]:flex-row">
+        <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+          <SignalPicker selected={selected} onToggle={toggle} />
+        </div>
+        <div className="min-w-0 flex-1 overflow-auto">
+          {signals.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-muted">{t("panels.pickTable")}</div>
+          ) : (
+            <LatestValues signals={signals} />
+          )}
+        </div>
       </div>
     </section>
   );

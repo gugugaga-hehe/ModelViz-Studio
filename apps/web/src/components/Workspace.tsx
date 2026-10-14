@@ -139,15 +139,20 @@ export function Workspace() {
       clearTimeout(timer);
       timer = setTimeout(save, SAVE_DELAY_MS);
     };
+    // Leaving the view (e.g. to Model Lab) or the page must not lose the last change. dockview
+    // reports changes asynchronously, so one may not even be scheduled yet: always save then.
+    const flush = () => {
+      clearTimeout(timer);
+      if (!restoring.current) save();
+    };
     const layout = api.onDidLayoutChange(schedule);
     paramsChanged.addEventListener("change", schedule);
+    window.addEventListener("pagehide", flush);
     return () => {
       layout.dispose();
       paramsChanged.removeEventListener("change", schedule);
-      // Leaving the view (e.g. to Model Lab) must not lose the last change. dockview reports
-      // changes asynchronously, so one may not even be scheduled yet: always save here.
-      clearTimeout(timer);
-      if (!restoring.current) save();
+      window.removeEventListener("pagehide", flush);
+      flush();
     };
   }, [api, project?.path]);
 

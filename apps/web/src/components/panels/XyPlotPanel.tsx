@@ -19,13 +19,15 @@ export function XyPlotPanel({ n, x, y, onChange }: { n: number; x: string; y: st
   useRetained(ys);
   const title = t("panels.xyTitle", { n });
   return (
-    <section aria-label={title} data-testid={`xy-plot-panel-${n - 1}`} className="@container flex h-full min-h-0 flex-col gap-3 bg-surface p-3 @[36rem]:flex-row">
-      <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-        <SignalSelect label={t("panels.xSignal")} value={x} onChange={(v) => onChange({ x: v, y })} />
-        <SignalSelect label={t("panels.ySignal")} value={y} onChange={(v) => onChange({ x, y: v })} />
+    <section aria-label={title} data-testid={`xy-plot-panel-${n - 1}`} className="@container h-full min-h-0 bg-surface p-3">
+      <div className="flex h-full min-h-0 flex-col gap-3 @[36rem]:flex-row">
+        <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+          <SignalSelect label={t("panels.xSignal")} value={x} onChange={(v) => onChange({ x: v, y })} />
+          <SignalSelect label={t("panels.ySignal")} value={y} onChange={(v) => onChange({ x, y: v })} />
+        </div>
+        {both ? <XyCanvas x={both[0]} y={both[1]} /> : <Empty text={t("panels.pickXy")} />}
       </div>
-      {both ? <XyCanvas x={both[0]} y={both[1]} /> : <Empty text={t("panels.pickXy")} />}
     </section>
   );
 }

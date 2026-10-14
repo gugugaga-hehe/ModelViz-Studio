@@ -54,7 +54,15 @@ test("XY and table Panels in a dockable layout that is saved in the Project", as
 
     // dock: drag the table's tab onto the lower half of the time plot to split it
     expect(await groups(page)).toEqual([["Time plot 1"], ["XY plot 1"], ["Table 1"]]);
-    const saves = Number(await workspace.getAttribute("data-layout-saves"));
+    // let saves of the earlier changes land, so the next one counted is the docking's
+    const savesNow = () => workspace.getAttribute("data-layout-saves").then(Number);
+    let saves = await savesNow();
+    for (let settled = false; !settled; ) {
+      await page.waitForTimeout(600);
+      const n = await savesNow();
+      settled = n === saves;
+      saves = n;
+    }
     const timePanel = page.getByTestId("time-plot-panel-0");
     const box = (await timePanel.boundingBox())!;
     await page.locator(".dv-tab", { hasText: "Table 1" }).dragTo(timePanel, { targetPosition: { x: box.width / 2, y: box.height - 15 } });
@@ -64,7 +72,7 @@ test("XY and table Panels in a dockable layout that is saved in the Project", as
       return Math.abs(t.x - b.x) < 2 && b.y > t.y + t.height - 2;
     };
     expect(await below()).toBe(true);
-    await expect.poll(async () => Number(await workspace.getAttribute("data-layout-saves"))).toBeGreaterThan(saves);
+    await expect.poll(savesNow).toBeGreaterThan(saves);
 
     // restored after a reload…
     await page.reload();

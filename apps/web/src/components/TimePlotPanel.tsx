@@ -36,22 +36,24 @@ export function TimePlotPanel({ n, selected, onChange }: { n: number; selected: 
   const title = t("plot.title", { n });
 
   return (
-    <section aria-label={title} data-testid={`time-plot-panel-${n - 1}`} className="@container flex h-full min-h-0 flex-col gap-3 bg-surface p-3 @[36rem]:flex-row">
-      <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-          <button
-            onClick={() => setPaused((p) => !p)}
-            disabled={!selectedSignals.length}
-            className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
-          >
-            {paused ? <Play size={12} /> : <Pause size={12} />}
-            {t(paused ? "plot.resume" : "plot.pause")}
-          </button>
+    <section aria-label={title} data-testid={`time-plot-panel-${n - 1}`} className="@container h-full min-h-0 bg-surface p-3">
+      <div className="flex h-full min-h-0 flex-col gap-3 @[36rem]:flex-row">
+        <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+            <button
+              onClick={() => setPaused((p) => !p)}
+              disabled={!selectedSignals.length}
+              className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
+            >
+              {paused ? <Play size={12} /> : <Pause size={12} />}
+              {t(paused ? "plot.resume" : "plot.pause")}
+            </button>
+          </div>
+          <SignalPicker selected={selected} onToggle={toggle} />
         </div>
-        <SignalPicker selected={selected} onToggle={toggle} />
+        <LivePlot signals={selectedSignals} paused={paused} />
       </div>
-      <LivePlot signals={selectedSignals} paused={paused} />
     </section>
   );
 }
