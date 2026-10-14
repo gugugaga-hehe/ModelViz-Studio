@@ -1,11 +1,12 @@
 import type { SignalInfo } from "@modelviz/protocol";
-import { Pause, Play, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { client, signalStore, useSession } from "../state/session";
+import { retainSignals, signalStore } from "../state/session";
 import { HISTORY_SECONDS } from "../state/signal-store";
+import { SignalPicker, useSignalsById } from "./panels/SignalPicker";
 import { alignedSince, wheelZoomPanPlugin } from "./plot-data";
 
 /** Visible time span of the live plot (seconds). */
@@ -15,81 +16,44 @@ const MIN_FRAME_MS = 33;
 /** Cursor sync group shared by all time plots. */
 const SYNC_KEY = "time-plots";
 
-const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
+export const PALETTE = ["#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
 
-function groupByMessage(signals: SignalInfo[]): [string, SignalInfo[]][] {
-  const groups = new Map<string, SignalInfo[]>();
-  for (const s of signals) {
-    const key = `${s.device}/${s.message}`;
-    groups.set(key, [...(groups.get(key) ?? []), s]);
-  }
-  return [...groups];
+/** Keeps the selected Signals subscribed while the Panel shows them. */
+export function useRetained(signals: SignalInfo[]): void {
+  useEffect(() => {
+    if (!signals.length) return;
+    return retainSignals(signals.map((s) => s.id));
+  }, [signals]);
 }
 
-export function TimePlotPanel({ index, onRemove }: { index: number; onRemove?: () => void }) {
+/** A live time plot Panel; `selected` lives in the Panel layout so it is saved with the Project. */
+export function TimePlotPanel({ n, selected, onChange }: { n: number; selected: string[]; onChange: (ids: string[]) => void }) {
   const { t } = useTranslation();
-  const signals = useSession((s) => s.signals);
-  const [selected, setSelected] = useState<string[]>([]);
   const [paused, setPaused] = useState(false);
-  const selectedSignals = useMemo(
-    () => selected.map((id) => signals.find((s) => s.id === id)).filter((s): s is SignalInfo => !!s),
-    [selected, signals],
-  );
-
-  // Drop selections that no longer exist (e.g. after switching Project).
-  useEffect(() => {
-    setSelected((sel) => sel.filter((id) => signals.some((s) => s.id === id)));
-  }, [signals]);
-
-  // Keep the server subscription in sync with the selection.
-  useEffect(() => {
-    const ids = selectedSignals.map((s) => s.id);
-    if (!ids.length) return;
-    void client.request("signals.subscribe", { ids }).catch(() => {});
-    return () => void client.request("signals.unsubscribe", { ids }).catch(() => {});
-  }, [selectedSignals]);
-
-  const toggle = (id: string) => setSelected((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
-  const title = t("plot.title", { n: index + 1 });
+  const selectedSignals = useSignalsById(selected);
+  useRetained(selectedSignals);
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  const title = t("plot.title", { n });
 
   return (
-    <section
-      aria-label={title}
-      data-testid={`time-plot-panel-${index}`}
-      className="flex min-h-64 flex-1 gap-3 rounded-lg border border-border bg-surface p-3"
-    >
-      <div className="flex w-60 shrink-0 flex-col gap-2 overflow-auto">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
-          <button
-            onClick={() => setPaused((p) => !p)}
-            disabled={!selectedSignals.length}
-            className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
-          >
-            {paused ? <Play size={12} /> : <Pause size={12} />}
-            {t(paused ? "plot.resume" : "plot.pause")}
-          </button>
-          {onRemove && (
-            <button onClick={onRemove} aria-label={t("plot.remove")} className="rounded p-0.5 text-muted hover:text-fg">
-              <X size={14} />
+    <section aria-label={title} data-testid={`time-plot-panel-${n - 1}`} className="@container h-full min-h-0 bg-surface p-3">
+      <div className="flex h-full min-h-0 flex-col gap-3 @[36rem]:flex-row">
+        <div className="flex max-h-40 shrink-0 flex-col gap-2 overflow-auto @[36rem]:max-h-none @[36rem]:w-60">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
+            <button
+              onClick={() => setPaused((p) => !p)}
+              disabled={!selectedSignals.length}
+              className="ml-auto inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs disabled:opacity-40"
+            >
+              {paused ? <Play size={12} /> : <Pause size={12} />}
+              {t(paused ? "plot.resume" : "plot.pause")}
             </button>
-          )}
+          </div>
+          <SignalPicker selected={selected} onToggle={toggle} />
         </div>
-        {signals.length === 0 && <p className="text-sm text-muted">{t("plot.noSignals")}</p>}
-        {groupByMessage(signals).map(([group, list]) => (
-          <fieldset key={group} className="text-sm">
-            <legend className="mb-1 text-xs text-muted">{group}</legend>
-            {list.map((s) => (
-              <label key={s.id} className="flex items-center gap-2 py-0.5">
-                <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggle(s.id)} aria-label={s.id} />
-                <span>{s.field}</span>
-                {s.units && <span className="text-xs text-muted">[{s.units}]</span>}
-              </label>
-            ))}
-          </fieldset>
-        ))}
+        <LivePlot signals={selectedSignals} paused={paused} />
       </div>
-      <LivePlot signals={selectedSignals} paused={paused} />
     </section>
   );
 }
@@ -187,7 +151,7 @@ function LivePlot({ signals, paused }: { signals: SignalInfo[]; paused: boolean 
 
   return (
     <div
-      className="relative min-h-0 min-w-0 flex-1"
+      className="relative min-h-40 min-w-0 flex-1"
       data-testid="time-plot"
       data-samples={samples}
       data-paused={paused}

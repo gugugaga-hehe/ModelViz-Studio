@@ -150,6 +150,19 @@ export const FrameFormatFile = z.discriminatedUnion("framing", [
 ]);
 export type FrameFormatFile = z.infer<typeof FrameFormatFile>;
 
+/** File in the Project folder that holds the Panel layout. */
+export const LAYOUT_FILE = "layout.yaml";
+
+/**
+ * The Panel layout of a Project: which Panels exist, how they are docked and split, and what
+ * each shows. `dock` is owned by the web app's layout manager; the server stores it as is.
+ */
+export const PanelLayout = z.object({
+  version: z.literal(1),
+  dock: z.record(z.string(), z.unknown()),
+});
+export type PanelLayout = z.infer<typeof PanelLayout>;
+
 /** Templates offered when creating a Project. */
 export const ProjectTemplate = z.enum(["empty", "virtual-bench"]);
 export type ProjectTemplate = z.infer<typeof ProjectTemplate>;

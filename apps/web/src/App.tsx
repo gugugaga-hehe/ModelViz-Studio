@@ -9,7 +9,7 @@ import { ParametersView } from "./components/ParametersView";
 import { ProjectPanel } from "./components/ProjectPanel";
 import { LiveSystemsPanel } from "./components/LiveSystemsPanel";
 import { RecordingsPanel } from "./components/RecordingsPanel";
-import { PlotStack } from "./components/PlotStack";
+import { Workspace } from "./components/Workspace";
 import { useSession } from "./state/session";
 
 export function App() {
@@ -74,7 +74,7 @@ export function App() {
             <RecordingsPanel />
             <LiveSystemsPanel />
           </aside>
-          <PlotStack />
+          <Workspace />
         </main>
       )}
     </div>

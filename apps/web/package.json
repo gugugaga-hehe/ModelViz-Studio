@@ -11,6 +11,7 @@
   "dependencies": {
     "@modelviz/client": "workspace:*",
     "@modelviz/protocol": "workspace:*",
+    "dockview-react": "8.5.1",
     "i18next": "26.4.4",
     "lucide-react": "1.49.0",
     "react": "19.3.0",

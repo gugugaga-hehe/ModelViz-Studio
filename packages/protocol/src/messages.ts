@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProjectInfo, ProjectTemplate, PythonConfig, TransportConfig } from "./project.ts";
+import { PanelLayout, ProjectInfo, ProjectTemplate, PythonConfig, TransportConfig } from "./project.ts";
 import {
   BlockInfo,
   DiscretizationComparison,
@@ -72,6 +72,16 @@ export const Methods = {
   "project.current": {
     params: z.object({}),
     result: ProjectInfo.nullable(),
+  },
+  /** The open Project's Panel layout; null when it has none yet. */
+  "layout.get": {
+    params: z.object({}),
+    result: PanelLayout.nullable(),
+  },
+  /** Save the Panel layout into the Project (layout.yaml). */
+  "layout.set": {
+    params: z.object({ layout: PanelLayout }),
+    result: z.object({}),
   },
   "devices.list": {
     params: z.object({}),

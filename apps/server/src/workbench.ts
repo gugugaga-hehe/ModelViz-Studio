@@ -24,7 +24,7 @@ import { runFrequencyAnalysis, runPoleZero } from "./model/frequency-analysis.ts
 import { type SweepControl, runSweep } from "./model/sweep.ts";
 import { type SampledSignal, runTimeAnalysis, withPython } from "./model/time-analysis.ts";
 import { type FrameFormat, loadFrameFormat } from "./frame-format.ts";
-import { type OpenedProject, createProject, openProject, updateManifest } from "./project-store.ts";
+import { type OpenedProject, createProject, openProject, readLayout, updateManifest, writeLayout } from "./project-store.ts";
 import { LiveSystem } from "./live-system.ts";
 import { DeviceLink } from "./device-link.ts";
 import type { ParameterClient } from "./device-parameters.ts";
@@ -103,6 +103,12 @@ export class Workbench {
       return this.setProject(await openProject(path));
     },
     "project.current": async () => this.project,
+    "layout.get": async () => readLayout(this.requireProject().path),
+    "layout.set": async (p) => {
+      const { layout } = Methods["layout.set"].params.parse(p);
+      await writeLayout(this.requireProject().path, layout);
+      return {};
+    },
     "devices.list": async () => {
       this.requireProject();
       return [...this.devices.values()].map(

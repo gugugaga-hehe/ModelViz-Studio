@@ -8,9 +8,10 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   Each branch `issue-<n>-…` is based on the previous ticket's branch; PR #N targets the previous branch.
   Merge in order from #22 using merge commits (squash breaks the stack).
 - **Done since:** #17 Device Parameters (`issue-17-device-parameters`, PR #37),
-  #18 Parameter Mapping & Push (`issue-18-parameter-mapping-push`).
-- **Remaining:** #19 FFT/PSD, #20 Attitude 3D Panel, #21 XY/table Panels + dockable layout.
-  Start #19 from branch `issue-18-parameter-mapping-push`.
+  #18 Parameter Mapping & Push (`issue-18-parameter-mapping-push`, PR #38),
+  #21 XY/table Panels + dockable layout (`issue-21-panels-dockable-layout`).
+- **Remaining:** #19 FFT/PSD, #20 Attitude 3D Panel. Start from `issue-21-panels-dockable-layout`
+  and add each as a new Panel kind in `apps/web/src/components/Workspace.tsx`.
 - Last full verification on `issue-16-…`: `pnpm typecheck` clean, `pnpm test` 110 passed,
   `pnpm test:e2e` 12 passed. CI runs on every stacked PR (`pull_request` trigger); earlier red
   runs on #25, #26, #33 and #36 came from the two flaky tests fixed on `issue-16-…` (see below).
@@ -47,12 +48,16 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   if a Block Parameter changed since). `push.ts` is the only code that writes Block Parameter values
   to a Device. The MAVLink protocol standard is captured in the `mavlink-device-protocol` skill.
 
+- Panel layout (#21): the Telemetry view's Panels live in dockview (`dockview-react`, pinned). Its
+  `toJSON()` (including each Panel's params, e.g. selected Signals) is saved as `layout.yaml` via
+  `layout.get`/`layout.set`; the server stores it opaquely. Panels subscribe through
+  `retainSignals()` (ref-counted: the server keeps one subscription per Signal per connection).
+  A new Panel kind = a component in `Workspace.tsx`'s `components` map + `TITLE_KEY` + toolbar button.
+
 ## Notes for the next tickets
 
 - #19: Signals are buffered client-side in `apps/web/src/state/signal-store.ts`; FFT/PSD can run in
   the browser on those buffers or as a server Analysis.
-- #21: layouts must persist in the Project (e.g. `layout.yaml`); panels currently are a fixed
-  sidebar + `PlotStack` (Telemetry) and the Model Lab tab.
 - The serial test needs `socat`; without it, it is silently skipped locally and only runs in CI.
   Without sudo: `apt-get download socat && dpkg-deb -x socat_*.deb <dir>` and put `<dir>/usr/bin` on `PATH`.
 - socat removes its `link=` symlinks on exit: wait for the old process to exit before creating a new

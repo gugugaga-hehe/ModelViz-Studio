@@ -12,6 +12,31 @@ export const client = new ModelVizClient(wsUrl);
 export const signalStore = new SignalStore();
 client.onSignalChunk((chunk) => signalStore.ingest(chunk));
 
+/**
+ * The server keeps one subscription per Signal per connection, so Panels share them through
+ * reference counts: a Signal stays subscribed while any Panel still shows it.
+ */
+const subscriptionCounts = new Map<string, number>();
+
+/** Subscribes to these Signals for as long as the caller holds them; returns the release function. */
+export function retainSignals(ids: string[]): () => void {
+  const added = ids.filter((id) => {
+    const n = subscriptionCounts.get(id) ?? 0;
+    subscriptionCounts.set(id, n + 1);
+    return n === 0;
+  });
+  if (added.length) void client.request("signals.subscribe", { ids: added }).catch(() => {});
+  return () => {
+    const removed = ids.filter((id) => {
+      const n = (subscriptionCounts.get(id) ?? 0) - 1;
+      if (n > 0) subscriptionCounts.set(id, n);
+      else subscriptionCounts.delete(id);
+      return n <= 0;
+    });
+    if (removed.length) void client.request("signals.unsubscribe", { ids: removed }).catch(() => {});
+  };
+}
+
 interface SessionState {
   connection: ConnectionState;
   connectionError: string | null;

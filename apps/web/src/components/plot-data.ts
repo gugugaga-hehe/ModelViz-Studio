@@ -59,3 +59,34 @@ export function wheelZoomPanPlugin(onUserRange: () => void): uPlot.Plugin {
     },
   };
 }
+
+/**
+ * (x, y) pairs of two Signals since `fromMs`: each y sample is paired with the latest x sample
+ * at or before it (sample-and-hold), so Signals from different Messages can be plotted together.
+ */
+export function pairsSince(x: SignalBuffer, y: SignalBuffer, fromMs: number): { xs: number[]; ys: number[] } {
+  // look back further for x, so the first y samples have an x to hold
+  const [xt, xv] = x.since(fromMs - 1000);
+  const [yt, yv] = y.since(fromMs);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  let j = -1;
+  for (let i = 0; i < yt.length; i++) {
+    while (j + 1 < xt.length && xt[j + 1]! <= yt[i]!) j++;
+    if (j < 0) continue;
+    xs.push(xv[j]!);
+    ys.push(yv[i]!);
+  }
+  return { xs, ys };
+}
+
+/** About `count` round tick values covering [min, max]. */
+export function niceTicks(min: number, max: number, count = 5): number[] {
+  if (!(max > min)) return [min];
+  const raw = (max - min) / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw)!;
+  const ticks: number[] = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-9; v += step) ticks.push(Number(v.toPrecision(12)));
+  return ticks;
+}
