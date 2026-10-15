@@ -19,6 +19,10 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 - The serial pty replug test is flaky under CPU load: one CI run (#33) timed out waiting for
   state `lost`, and one local full run failed it while the other test files ran in parallel; it
   passes alone. `waitForSource` prints the states it saw, so a recurrence will say where it stuck.
+- `panels.spec.ts` ("XY and table Panels…") failed once in CI (PR #61, docs-only): after the reload
+  the restored table Panel's value row did not appear within 5 s. Not reproduced locally (25+
+  runs, also under full CPU load); CI keeps no Playwright artifacts, so a recurrence gives no page
+  snapshot. Uploading `test-results/` on failure would help diagnose it.
 - Measured Frequency Response is slow (~15 s for the example loop with the loop broken): feedback
   loops are stepped per sample (ADR-0011) and continuous-only Systems run 20× oversampled.
 
