@@ -120,6 +120,11 @@ client.on("signals.reset", ({ device }) => {
 client.connect();
 
 /** Reloads Blocks and Systems after model files change. */
+/** Live samples the server skipped for this window because it fell behind (since last dismissed). */
+export const useDropped = create<{ samples: number; dismiss(): void }>((set) => ({ samples: 0, dismiss: () => set({ samples: 0 }) }));
+client.on("signals.dropped", ({ signals }) => useDropped.setState((s) => ({ samples: s.samples + signals.reduce((n, d) => n + d.samples, 0) })));
+client.on("project.changed", () => useDropped.setState({ samples: 0 }));
+
 /** Progress of long-running Analyses by id. */
 export const useProgress = create<Record<string, { done: number; total: number }>>(() => ({}));
 client.on("analysis.progress", (p) => useProgress.setState({ [p.id]: { done: p.done, total: p.total } }));

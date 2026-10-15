@@ -398,6 +398,11 @@
     "reset": "Reset Layout",
     "backedUp": "The old Layout was kept as {{file}} in the Project folder."
   },
+  "display": {
+    "dropped_one": "The display fell behind: {{count}} live sample was skipped (the Device and Recordings were not affected).",
+    "dropped_other": "The display fell behind: {{count}} live samples were skipped (the Device and Recordings were not affected).",
+    "dismiss": "Dismiss"
+  },
   "form": {
     "required": "This field is required.",
     "invalid": "This value is not valid.",
