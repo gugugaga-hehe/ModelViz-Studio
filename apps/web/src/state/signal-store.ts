@@ -88,8 +88,9 @@ export class SignalBuffer {
   /**
    * Samples in [fromMs, toMs], reduced to at most about 2 × `columns` points: each column of
    * the time range keeps its minimum and maximum (in the order they occurred), so peaks stay
-   * visible. Their x positions are the column's first and last sample times, so Signals that
-   * share timestamps get identical xs. Windows with few samples are returned as they are.
+   * visible. Columns and their x positions come from [fromMs, toMs] alone, not from this
+   * buffer's samples, so Signals plotted together get identical xs even when one has already
+   * received a newer chunk than another. Windows with few samples are returned as they are.
    */
   window(fromMs: number, toMs: number, columns: number): Window {
     const cap = this.capacity;
@@ -107,23 +108,23 @@ export class SignalBuffer {
       }
       return { xs, ys };
     }
-    const t0 = this.timeAt(i0);
-    const span = this.timeAt(i1 - 1) - t0 || 1;
+    const lo = Number.isFinite(fromMs) ? fromMs : this.timeAt(i0);
+    const hi = Number.isFinite(toMs) ? toMs : this.timeAt(i1 - 1);
+    const width = (hi - lo) / columns || 1;
     let col = -1;
-    let first = 0;
-    let lastT = 0;
     let min = 0;
     let max = 0;
     let minAt = 0;
     let maxAt = 0;
     const emit = () => {
       if (col < 0) return;
+      const x = (f: number) => (lo + (col + f) * width) / 1000;
       if (minAt === maxAt) {
-        xs.push(first / 1000);
+        xs.push(x(0.5));
         ys.push(min);
         return;
       }
-      xs.push(first / 1000, lastT / 1000);
+      xs.push(x(0.25), x(0.75));
       if (minAt < maxAt) ys.push(min, max);
       else ys.push(max, min);
     };
@@ -131,18 +132,16 @@ export class SignalBuffer {
       const at = (this.head + i) % cap;
       const t = this.times[at]!;
       const v = this.values[at]!;
-      const c = Math.min(columns - 1, Math.floor(((t - t0) / span) * columns));
+      const c = Math.min(columns - 1, Math.max(0, Math.floor((t - lo) / width)));
       if (c !== col) {
         emit();
         col = c;
-        first = t;
         min = max = v;
         minAt = maxAt = i;
       } else {
         if (v < min) (min = v), (minAt = i);
         if (v > max) (max = v), (maxAt = i);
       }
-      lastT = t;
     }
     emit();
     return { xs, ys };
