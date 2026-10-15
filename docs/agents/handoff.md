@@ -21,8 +21,9 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   passes alone. `waitForSource` prints the states it saw, so a recurrence will say where it stuck.
 - `panels.spec.ts` ("XY and table Panels…") failed once in CI (PR #61, docs-only): after the reload
   the restored table Panel's value row did not appear within 5 s. Not reproduced locally (25+
-  runs, also under full CPU load); CI keeps no Playwright artifacts, so a recurrence gives no page
-  snapshot. Uploading `test-results/` on failure would help diagnose it.
+  runs, also under full CPU load), and CI kept no page snapshot then. CI now uploads
+  `test-results/` (Playwright traces) as the `playwright-test-results` artifact when the job
+  fails: `gh run download <run-id>`, then `pnpm exec playwright show-trace <trace.zip>`.
 - Measured Frequency Response is slow (~15 s for the example loop with the loop broken): feedback
   loops are stepped per sample (ADR-0011) and continuous-only Systems run 20× oversampled.
 
