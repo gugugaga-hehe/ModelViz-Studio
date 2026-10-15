@@ -1,24 +1,30 @@
-# Handoff: MVP implementation progress
+# Handoff: implementation progress
 
 Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
 
-## State (2026-10-14)
+## State (2026-10-15)
 
 - **MVP complete and merged.** All 20 tickets (#2–#21) landed on `main` via PRs #22–#41 (merge
   commits, in stack order); every ticket issue is closed and CI on `main` is green.
 - The stacked-branch workflow is over: ticket branches are deleted, new work branches from `main`
   and opens PRs against `main`.
-- Last verification before merge (on the final ticket branch): `pnpm typecheck` clean, `pnpm test`
-  134 passed, e2e 17 passed.
-- Merging PRs from the agent is blocked by the permission classifier; the user merges.
+- **Review follow-ups done.** A review after the MVP opened #43–#51; each was implemented in its
+  own PR (#52–#60) and merged to `main`. Latest local verification: `pnpm typecheck` clean,
+  `pnpm test` 144 passed, `pnpm test:e2e` 24 passed.
+- The agent merges its own PRs once CI is green (`gh pr merge --merge --delete-branch`); the repo
+  does not allow GitHub auto-merge.
 
 ### Open follow-ups (not tickets yet)
 
-- One CI run (#33) once timed out waiting for serial state `lost`; not reproduced. `waitForSource`
-  now prints the states it saw, so a recurrence will say where it stuck.
+- The serial pty replug test is flaky under CPU load: one CI run (#33) timed out waiting for
+  state `lost`, and one local full run failed it while the other test files ran in parallel; it
+  passes alone. `waitForSource` prints the states it saw, so a recurrence will say where it stuck.
+- `panels.spec.ts` ("XY and table Panels…") failed once in CI (PR #61, docs-only): after the reload
+  the restored table Panel's value row did not appear within 5 s. Not reproduced locally (25+
+  runs, also under full CPU load); CI keeps no Playwright artifacts, so a recurrence gives no page
+  snapshot. Uploading `test-results/` on failure would help diagnose it.
 - Measured Frequency Response is slow (~15 s for the example loop with the loop broken): feedback
   loops are stepped per sample (ADR-0011) and continuous-only Systems run 20× oversampled.
-- Header nav overflows on narrow windows (pre-existing): gugugaga-hehe/ModelViz-Studio#50.
 
 ## Setting up a new environment
 
@@ -83,6 +89,31 @@ Spec: gugugaga-hehe/ModelViz-Studio#1 (tickets #2–#21, all `ready-for-agent`).
   (`signalStore.buffer(h).latestValue()`), never per sample. Exposes applied rotation and atomic
   quaternion on data attributes for fast, deterministic Seam B smoke testing. Dialect Message
   `BENCH_ATTITUDE` added to `bench.xml`, `bench.yaml`, and virtual bench template.
+
+- Layout (#44): `layout.get` returns `none` / `ok` / `unreadable`; `layout.set` refuses to replace an
+  unreadable file and `layout.reset` moves it to the next free `layout.yaml.bak[.N]`. Changing the
+  saved dock shape means bumping `LAYOUT_VERSION` and adding a step to `MIGRATIONS` in `Workspace.tsx`.
+
+- Python host (#45): `runner.py` replies on a private copy of stdout; Block output goes to stderr and
+  reaches clients as `python.output`. Each call times out after `python.callTimeoutS` (default 30 s)
+  and kills the host. Analysis jobs carry an `AbortSignal`; aborting kills the host at once.
+
+- Long Analyses (#46): `runChunked` (`model/time-analysis.ts`) runs 1000-sample chunks and yields
+  every 15 ms; time Analyses and Sweep step Metrics use it. `MAX_TIME_SAMPLES` (1 000 000) caps one
+  run. `SweepControl` / `MeasureControl` are aliases of `AnalysisControl`.
+
+- Signal bus (#47): a client with more than 1 MB queued skips chunks; it gets `signals.dropped` (per
+  Signal counts) once it drains, and the Telemetry view shows the count.
+
+- Plots (#43, #48): `SignalBuffer.window()` binary-searches the window and reduces it to a min/max
+  envelope per pixel column; paused time plots re-read the visible range. All plot colours come from
+  `components/plot-theme.ts` (`--mv-series-*` tokens, light and dark); plots are recreated when
+  `prefers-color-scheme` changes.
+
+- UI controls (#49, #51): use `Button` / `Input` / `Select` / `Textarea` from `components/ui/controls.tsx`
+  (no per-component class strings; `className` for layout only). Fields replace the browser's
+  validation bubble with an i18n message (`form.*`) and `aria-describedby`; pass `patternHint` for
+  `pattern` fields.
 
 ## Notes for future iterations
 
