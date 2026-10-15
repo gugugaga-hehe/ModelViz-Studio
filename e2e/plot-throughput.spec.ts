@@ -71,7 +71,18 @@ test("time plot keeps display rate with several 8 kHz Signals and keeps peaks vi
     // …handing uPlot about two points per pixel column instead of 80 000 samples…
     const width = (await plot.locator(".u-over").boundingBox())!.width;
     const dpr = await page.evaluate(() => devicePixelRatio);
-    expect(await num("data-points")).toBeLessThanOrEqual(Math.ceil(2 * width * dpr) + 4);
+    // checked over many frames: Signals of one Message arrive in separate chunks, so some frames
+    // see buffers that are one chunk apart; they must still share x positions
+    // (a throttled CPU makes such frames common, as on a busy CI machine)
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    const points: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      points.push(await num("data-points"));
+      await page.waitForTimeout(25);
+    }
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    expect(Math.max(...points)).toBeLessThanOrEqual(Math.ceil(2 * width * dpr) + 4);
 
     // …and the sine's peaks survive the reduction
     expect(await num("data-y-span")).toBeGreaterThan(9.5);
